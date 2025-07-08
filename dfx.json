@@ -1,0 +1,17 @@
+{
+  "canisters": {
+    "payment_backend_backend": {
+      "candid": "src/payment_backend_backend/payment_backend_backend.did",
+      "package": "payment_backend_backend",
+      "type": "rust"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}
