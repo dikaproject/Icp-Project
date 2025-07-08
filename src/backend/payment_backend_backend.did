@@ -1,0 +1,145 @@
+type User = record {
+  id : principal;
+  wallet_address : text;
+  created_at : nat64;
+  username : opt text;
+  email : opt text;
+};
+
+type Transaction = record {
+  id : text;
+  from : principal;
+  to : principal;
+  amount : nat64;
+  fiat_currency : text;
+  fiat_amount : float64;
+  icp_amount : nat64;
+  timestamp : nat64;
+  status : TransactionStatus;
+  qr_id : text;
+  transaction_hash : opt text;
+  fee : nat64;
+};
+
+type TransactionStatus = variant {
+  Pending;
+  Completed;
+  Failed;
+  Expired;
+  Processing;
+};
+
+type QRCode = record {
+  id : text;
+  user_id : principal;
+  fiat_amount : float64;
+  fiat_currency : text;
+  icp_amount : nat64;
+  expire_time : nat64;
+  created_at : nat64;
+  is_used : bool;
+  description : opt text;
+};
+
+type ExchangeRate = record {
+  currency : text;
+  rate : float64;
+  timestamp : nat64;
+  source : text;
+};
+
+type UserStats = record {
+  total_sent : nat64;
+  total_received : nat64;
+  transaction_count : nat64;
+  qr_codes_generated : nat64;
+};
+
+type QRDisplayInfo = record {
+  id : text;
+  fiat_amount : float64;
+  fiat_currency : text;
+  icp_amount : nat64;
+  formatted_fiat : text;
+  formatted_icp : text;
+  time_remaining_seconds : opt nat64;
+  is_expired : bool;
+  is_used : bool;
+  description : opt text;
+};
+
+type TransactionSummary = record {
+  id : text;
+  amount_icp : text;
+  amount_fiat : text;
+  currency : text;
+  status : text;
+  timestamp : nat64;
+  is_incoming : bool;
+  counterpart : principal;
+};
+
+type SystemStats = record {
+  total_users : nat64;
+  total_transactions : nat64;
+  total_qr_codes : nat64;
+  cached_exchange_rates : nat64;
+  completed_transactions : nat64;
+  pending_transactions : nat64;
+  failed_transactions : nat64;
+  canister_balance : nat64;
+};
+
+type Result = variant { Ok : User; Err : text };
+type Result_1 = variant { Ok : ExchangeRate; Err : text };
+type Result_2 = variant { Ok : QRCode; Err : text };
+type Result_3 = variant { Ok : Transaction; Err : text };
+type Result_4 = variant { Ok : QRDisplayInfo; Err : text };
+
+service : {
+  // User management
+  register_user : (text, opt text, opt text) -> (Result);
+  update_user_profile : (opt text, opt text) -> (Result);
+  get_user : () -> (opt User) query;
+  get_user_by_id : (principal) -> (opt User) query;
+  get_user_stats : () -> (opt UserStats) query;
+  
+  // Exchange rates
+  fetch_exchange_rate : (text) -> (Result_1);
+  get_cached_exchange_rate : (text) -> (opt ExchangeRate) query;
+  get_supported_currencies_list : () -> (vec text) query;
+  
+  // QR code management
+  generate_qr : (float64, text, opt text) -> (Result_2);
+  get_qr : (text) -> (opt QRCode) query;
+  get_qr_display_info_by_id : (text) -> (opt QRDisplayInfo) query;
+  get_user_qr_codes : () -> (vec QRCode) query;
+  validate_qr_code : (text) -> (Result_4);
+  
+  // Transaction management
+  process_payment : (text, opt text) -> (Result_3);
+  update_transaction_status_endpoint : (text, TransactionStatus, opt text) -> (Result_3);
+  get_transaction : (text) -> (opt Transaction) query;
+  get_user_transactions : () -> (vec Transaction) query;
+  get_user_transaction_summaries : () -> (vec TransactionSummary) query;
+  get_recent_transactions_public : () -> (vec Transaction) query;
+  
+  // System management
+  cleanup_expired_qr_codes : () -> (nat64);
+  cleanup_expired_transactions : () -> (nat64);
+  get_system_stats : () -> (SystemStats) query;
+  
+  // HTTP transform
+  transform_response : (record {
+    context : blob;
+    response : record {
+      status : nat;
+      body : blob;
+      headers : vec record { text; text };
+    };
+  }) -> (record {
+    status : nat;
+    body : blob;
+    headers : vec record { text; text };
+  }) query;
+}

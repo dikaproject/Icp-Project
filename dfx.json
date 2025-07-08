@@ -1,9 +1,19 @@
 {
+  "version": 1,
   "canisters": {
-    "payment_backend_backend": {
-      "candid": "src/payment_backend_backend/payment_backend_backend.did",
-      "package": "payment_backend_backend",
-      "type": "rust"
+    "backend": {
+      "type": "rust",
+      "package": "payment_backend",
+      "candid": "src/backend/payment_backend_backend.did"
+    },
+    "frontend": {
+      "type": "assets",
+      "source": [
+        "src/frontend/out"
+      ],
+      "dependencies": [
+        "backend"
+      ]
     }
   },
   "defaults": {
@@ -13,5 +23,14 @@
     }
   },
   "output_env_file": ".env",
-  "version": 1
+  "networks": {
+    "local": {
+      "bind": "127.0.1:4943",
+      "type": "ephemeral"
+    },
+    "ic": {
+      "providers": ["https://ic0.app"],
+      "type": "persistent"
+    }
+  }
 }
