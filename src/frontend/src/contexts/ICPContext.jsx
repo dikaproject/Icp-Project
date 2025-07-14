@@ -13,52 +13,6 @@ export const useICP = () => {
   return context
 }
 
-// Fixed development identity for testing
-const DEV_IDENTITY_SEED = 'development-seed-12345'
-
-const generateDevIdentity = () => {
-  try {
-    // Method 1: Generate consistent identity from seed
-    const encoder = new TextEncoder()
-    const seedString = DEV_IDENTITY_SEED + Date.now().toString().slice(0, 10) // Add some entropy but keep it deterministic for development
-    const seedBytes = encoder.encode(seedString)
-    
-    // Create a proper 32-byte seed using crypto-subtle if available, otherwise use simple hash
-    const seed = new Uint8Array(32)
-    
-    // Fill seed with bytes from our string, cycling if necessary
-    for (let i = 0; i < 32; i++) {
-      seed[i] = seedBytes[i % seedBytes.length]
-    }
-    
-    // Create identity from seed
-    return Ed25519KeyIdentity.fromSecretKey(seed)
-  } catch (error) {
-    console.error('Failed to generate from seed, using random identity:', error)
-    // Fallback: generate random identity
-    return Ed25519KeyIdentity.generate()
-  }
-}
-
-// Alternative: Use a more robust seed generation
-const generateDevIdentityFromSeed = async (seedString) => {
-  try {
-    // Use Web Crypto API for better seed generation
-    const encoder = new TextEncoder()
-    const data = encoder.encode(seedString)
-    
-    // Create a hash of the seed
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-    const seed = new Uint8Array(hashBuffer)
-    
-    return Ed25519KeyIdentity.fromSecretKey(seed)
-  } catch (error) {
-    console.error('Web Crypto API not available, using fallback:', error)
-    // Fallback to simple method
-    return Ed25519KeyIdentity.generate()
-  }
-}
-
 export const ICPProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [identity, setIdentity] = useState(null)
@@ -71,6 +25,7 @@ export const ICPProvider = ({ children }) => {
 
   const canisterId = import.meta.env.VITE_CANISTER_ID || 'uxrrr-q7777-77774-qaaaq-cai'
   const host = import.meta.env.VITE_IC_HOST || 'http://localhost:4943'
+  const isDevelopment = import.meta.env.VITE_DFX_NETWORK === 'local' || import.meta.env.NODE_ENV === 'development'
 
   useEffect(() => {
     initAuth()
@@ -81,7 +36,7 @@ export const ICPProvider = ({ children }) => {
       setError(null)
       // Check if we have stored identity from previous session
       const storedAuth = localStorage.getItem('icp_auth_state')
-      const storedIdentity = localStorage.getItem('icp_dev_identity')
+      const storedIdentity = localStorage.getItem('icp_dev_identity_simple')
       
       if (storedAuth && storedIdentity) {
         // Try to restore previous session
@@ -90,9 +45,9 @@ export const ICPProvider = ({ children }) => {
           const restoredIdentity = Ed25519KeyIdentity.fromSecretKey(new Uint8Array(identityData.secretKey))
           await authenticateWithIdentity(restoredIdentity)
         } catch (err) {
-          console.warn('Failed to restore identity, creating new one:', err)
+          console.warn('Failed to restore identity, will create new one on login')
           localStorage.removeItem('icp_auth_state')
-          localStorage.removeItem('icp_dev_identity')
+          localStorage.removeItem('icp_dev_identity_simple')
           await createActorConnection()
         }
       } else {
@@ -109,14 +64,23 @@ export const ICPProvider = ({ children }) => {
 
   const createActorConnection = async (identity = null) => {
     try {
+      console.log('🔗 Creating actor connection with host:', host)
+      
       const agent = new HttpAgent({ 
         host,
         identity 
       })
       
-      // Fetch root key for local development
-      if (import.meta.env.VITE_DFX_NETWORK === 'local') {
-        await agent.fetchRootKey()
+      // Fetch root key for local development - with better error handling
+      if (isDevelopment) {
+        try {
+          console.log('🔑 Fetching root key for local development...')
+          await agent.fetchRootKey()
+          console.log('✅ Root key fetched successfully')
+        } catch (rootKeyError) {
+          console.warn('⚠️ Failed to fetch root key:', rootKeyError)
+          // Continue anyway - sometimes this works even without root key
+        }
       }
 
       const actorInstance = createActor(canisterId, { agent })
@@ -128,7 +92,7 @@ export const ICPProvider = ({ children }) => {
       return backendService
     } catch (err) {
       console.error('Actor creation error:', err)
-      setError('Failed to connect to canister')
+      setError(`Failed to connect to canister: ${err.message}`)
       throw err
     }
   }
@@ -147,7 +111,7 @@ export const ICPProvider = ({ children }) => {
     
     // Store auth state and identity for next session
     localStorage.setItem('icp_auth_state', 'authenticated')
-    localStorage.setItem('icp_dev_identity', JSON.stringify({
+    localStorage.setItem('icp_dev_identity_simple', JSON.stringify({
       secretKey: Array.from(identity.getKeyPair().secretKey)
     }))
     
@@ -159,24 +123,9 @@ export const ICPProvider = ({ children }) => {
       setIsLoading(true)
       setError(null)
       
-      // For development: try different methods to generate identity
-      let devIdentity
-      
-      try {
-        // Method 1: Use Web Crypto API
-        devIdentity = await generateDevIdentityFromSeed(DEV_IDENTITY_SEED)
-      } catch (err) {
-        console.warn('Web Crypto method failed, using fallback:', err)
-        
-        try {
-          // Method 2: Simple seed method
-          devIdentity = generateDevIdentity()
-        } catch (err2) {
-          console.warn('Seed method failed, using random:', err2)
-          // Method 3: Just generate random identity
-          devIdentity = Ed25519KeyIdentity.generate()
-        }
-      }
+      // Simple approach: just generate a random identity each time
+      // In production, you'd use Internet Identity or other auth method
+      const devIdentity = Ed25519KeyIdentity.generate()
       
       console.log('🔑 Development Principal:', devIdentity.getPrincipal().toString())
       
@@ -185,7 +134,14 @@ export const ICPProvider = ({ children }) => {
       return true
     } catch (err) {
       console.error('Login error:', err)
-      setError('Login failed. Please try again.')
+      
+      // More specific error handling
+      if (err.message.includes('certificate') || err.message.includes('signature')) {
+        setError('Connection failed. Please ensure DFX is running and try again.')
+      } else {
+        setError('Login failed. Please try again.')
+      }
+      
       return false
     } finally {
       setIsLoading(false)
@@ -204,7 +160,7 @@ export const ICPProvider = ({ children }) => {
       
       // Clear stored auth state
       localStorage.removeItem('icp_auth_state')
-      localStorage.removeItem('icp_dev_identity')
+      localStorage.removeItem('icp_dev_identity_simple')
       
       // Create anonymous actor
       await createActorConnection()
@@ -225,6 +181,12 @@ export const ICPProvider = ({ children }) => {
       return userData
     } catch (err) {
       console.error('Load user error:', err)
+      
+      // Don't show error for user not found - this is normal for new users
+      if (!err.message.includes('not found')) {
+        console.warn('Failed to load user data:', err.message)
+      }
+      
       return null
     }
   }
@@ -253,7 +215,13 @@ export const ICPProvider = ({ children }) => {
       }
     } catch (err) {
       console.error('Registration error:', err)
-      return { success: false, error: err.message }
+      
+      // More specific error handling
+      if (err.message.includes('certificate') || err.message.includes('signature')) {
+        return { success: false, error: 'Connection failed. Please ensure DFX is running and try again.' }
+      } else {
+        return { success: false, error: err.message }
+      }
     }
   }
 

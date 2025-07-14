@@ -91,14 +91,17 @@ export const idlFactory = ({ IDL }) => {
 }
 
 export const createActor = (canisterId, options = {}) => {
+  const host = options.host || import.meta.env.VITE_IC_HOST || 'http://localhost:4943'
   const agent = options.agent || new HttpAgent({ 
-    host: import.meta.env.VITE_IC_HOST || 'http://localhost:4943' 
+    host,
+    identity: options.identity
   })
 
-  // Fetch root key for local development
+  // Fetch root key for local development with better error handling
   if (import.meta.env.VITE_DFX_NETWORK === 'local') {
     agent.fetchRootKey().catch(err => {
       console.warn('Unable to fetch root key:', err)
+      // Continue anyway - sometimes this works even without root key
     })
   }
 
@@ -116,13 +119,21 @@ export class PaymentBackendService {
 
   async registerUser(walletAddress, username, email) {
     try {
-      return await this.actor.register_user(
+      const result = await this.actor.register_user(
         walletAddress, 
         username ? [username] : [], 
         email ? [email] : []
       )
+      return result
     } catch (error) {
-      return { Err: `Registration failed: ${error.message}` }
+      console.error('Registration service error:', error)
+      
+      // Handle specific certificate errors
+      if (error.message.includes('certificate') || error.message.includes('signature')) {
+        throw new Error('Connection failed. Please ensure DFX is running and try again.')
+      }
+      
+      throw new Error(`Registration failed: ${error.message}`)
     }
   }
 
@@ -132,6 +143,12 @@ export class PaymentBackendService {
       return result.length > 0 ? result[0] : null
     } catch (error) {
       console.error('Failed to get user:', error)
+      
+      // Handle specific certificate errors
+      if (error.message.includes('certificate') || error.message.includes('signature')) {
+        throw new Error('Connection failed. Please ensure DFX is running and try again.')
+      }
+      
       return null
     }
   }
@@ -177,6 +194,7 @@ export class PaymentBackendService {
     try {
       return await this.actor.fetch_exchange_rate(currency)
     } catch (error) {
+      console.error('Exchange rate fetch error:', error)
       return { Err: `Exchange rate fetch failed: ${error.message}` }
     }
   }
@@ -189,6 +207,7 @@ export class PaymentBackendService {
         description ? [description] : []
       )
     } catch (error) {
+      console.error('QR generation error:', error)
       return { Err: `QR generation failed: ${error.message}` }
     }
   }
@@ -197,6 +216,7 @@ export class PaymentBackendService {
     try {
       return await this.actor.validate_qr_code(qrId)
     } catch (error) {
+      console.error('QR validation error:', error)
       return { Err: `QR validation failed: ${error.message}` }
     }
   }
@@ -208,6 +228,7 @@ export class PaymentBackendService {
         transactionHash ? [transactionHash] : []
       )
     } catch (error) {
+      console.error('Payment processing error:', error)
       return { Err: `Payment processing failed: ${error.message}` }
     }
   }
