@@ -124,7 +124,7 @@ fn get_user_by_id(user_id: Principal) -> Option<User> {
 }
 
 // ===================
-// EXCHANGE RATE MANAGEMENT
+// ENHANCED EXCHANGE RATE MANAGEMENT
 // ===================
 
 #[update]
@@ -136,14 +136,53 @@ async fn fetch_exchange_rate(currency: String) -> Result<ExchangeRate, String> {
         return Err(format!("Unsupported currency: {}", currency_upper));
     }
 
-    let exchange_rate = fetch_live_exchange_rate(currency_upper.clone()).await?;
-
-    // Cache the rate
-    EXCHANGE_RATES.with(|rates| {
-        rates.borrow_mut().insert(currency_upper, exchange_rate.clone());
+    // Check if we have a valid cached rate first
+    let cached_rate = EXCHANGE_RATES.with(|rates| {
+        rates.borrow().get(&currency_upper).cloned()
     });
+    
+    if let Some(rate) = cached_rate.as_ref() {
+        if is_rate_cache_valid(rate) {
+            ic_cdk::println!("✅ Using valid cached rate for {}", currency_upper);
+            return Ok(rate.clone());
+        }
+    }
 
-    Ok(exchange_rate)
+    // Try to fetch fresh rate with retry logic
+    match fetch_exchange_rate_with_retry(currency_upper.clone()).await {
+        Ok(exchange_rate) => {
+            // Cache the fresh rate
+            EXCHANGE_RATES.with(|rates| {
+                rates.borrow_mut().insert(currency_upper.clone(), exchange_rate.clone());
+            });
+            
+            ic_cdk::println!("✅ Fresh rate fetched and cached for {}", currency_upper);
+            Ok(exchange_rate)
+        }
+        Err(e) => {
+            ic_cdk::println!("❌ Failed to fetch fresh rate: {}", e);
+            
+            // If we have any cached rate (even if expired), use it
+            if let Some(rate) = cached_rate {
+                ic_cdk::println!("⚠️ Using expired cached rate for {}", currency_upper);
+                return Ok(rate);
+            }
+            
+            // As last resort, try fallback rate
+            if let Some(fallback_rate) = get_fallback_rate(&currency_upper) {
+                ic_cdk::println!("🆘 Using fallback rate for {}", currency_upper);
+                
+                // Cache the fallback rate
+                EXCHANGE_RATES.with(|rates| {
+                    rates.borrow_mut().insert(currency_upper, fallback_rate.clone());
+                });
+                
+                return Ok(fallback_rate);
+            }
+            
+            Err(format!("Could not fetch rate for {}: {}", currency_upper, e))
+        }
+    }
 }
 
 #[query]
@@ -155,8 +194,42 @@ fn get_cached_exchange_rate(currency: String) -> Option<ExchangeRate> {
 
 #[query]
 #[candid_method(query)]
-fn get_supported_currencies_list() -> Vec<String> {
-    get_supported_currencies()
+fn get_cached_exchange_rate_with_validity(currency: String) -> Option<(ExchangeRate, bool)> {
+    let currency_upper = currency.to_uppercase();
+    EXCHANGE_RATES.with(|rates| {
+        rates.borrow().get(&currency_upper).map(|rate| {
+            let is_valid = is_rate_cache_valid(rate);
+            (rate.clone(), is_valid)
+        })
+    })
+}
+
+// Add new function to force refresh rate (for testing)
+#[update]
+#[candid_method(update)]
+async fn force_refresh_exchange_rate(currency: String) -> Result<ExchangeRate, String> {
+    let currency_upper = currency.to_uppercase();
+    
+    if !is_supported_currency(&currency_upper) {
+        return Err(format!("Unsupported currency: {}", currency_upper));
+    }
+
+    // Force fresh fetch
+    match fetch_live_exchange_rate(currency_upper.clone()).await {
+        Ok(exchange_rate) => {
+            // Cache the fresh rate
+            EXCHANGE_RATES.with(|rates| {
+                rates.borrow_mut().insert(currency_upper.clone(), exchange_rate.clone());
+            });
+            
+            ic_cdk::println!("✅ Force refreshed rate for {}", currency_upper);
+            Ok(exchange_rate)
+        }
+        Err(e) => {
+            ic_cdk::println!("❌ Force refresh failed: {}", e);
+            Err(format!("Force refresh failed for {}: {}", currency_upper, e))
+        }
+    }
 }
 
 // ===================
@@ -467,7 +540,24 @@ fn get_system_stats() -> SystemStats {
     let total_users = USERS.with(|users| users.borrow().len() as u64);
     let total_transactions = TRANSACTIONS.with(|tx| tx.borrow().len() as u64);
     let total_qr_codes = QR_CODES.with(|qr| qr.borrow().len() as u64);
-    let cached_rates = EXCHANGE_RATES.with(|rates| rates.borrow().len() as u64);
+    
+    // Enhanced rate cache info
+    let (cached_rates, valid_rates, expired_rates) = EXCHANGE_RATES.with(|rates| {
+        let mut total = 0;
+        let mut valid = 0;
+        let mut expired = 0;
+        
+        for (_, rate) in rates.borrow().iter() {
+            total += 1;
+            if is_rate_cache_valid(rate) {
+                valid += 1;
+            } else {
+                expired += 1;
+            }
+        }
+        
+        (total, valid, expired)
+    });
     
     // Count transactions by status
     let (completed_tx, pending_tx, failed_tx) = TRANSACTIONS.with(|transactions| {
@@ -491,10 +581,12 @@ fn get_system_stats() -> SystemStats {
         total_transactions,
         total_qr_codes,
         cached_exchange_rates: cached_rates,
+        valid_exchange_rates: valid_rates,
+        expired_exchange_rates: expired_rates,
         completed_transactions: completed_tx,
         pending_transactions: pending_tx,
         failed_transactions: failed_tx,
-        canister_balance: 0, // This would need IC management canister call
+        canister_balance: 0,
     }
 }
 
@@ -505,10 +597,38 @@ pub struct SystemStats {
     pub total_transactions: u64,
     pub total_qr_codes: u64,
     pub cached_exchange_rates: u64,
+    pub valid_exchange_rates: u64,
+    pub expired_exchange_rates: u64,
     pub completed_transactions: u64,
     pub pending_transactions: u64,
     pub failed_transactions: u64,
     pub canister_balance: u64,
+}
+
+// Rate cache cleanup function
+#[update]
+#[candid_method(update)]
+async fn cleanup_expired_rates() -> u64 {
+    let mut cleaned_count = 0;
+    
+    EXCHANGE_RATES.with(|rates| {
+        let mut rates_borrow = rates.borrow_mut();
+        let mut expired_currencies = Vec::new();
+        
+        for (currency, rate) in rates_borrow.iter() {
+            if !is_rate_cache_valid(&rate) {
+                expired_currencies.push(currency.clone());
+            }
+        }
+        
+        for currency in expired_currencies {
+            rates_borrow.remove(&currency);
+            cleaned_count += 1;
+        }
+    });
+    
+    ic_cdk::println!("🧹 Cleaned up {} expired exchange rates", cleaned_count);
+    cleaned_count
 }
 
 // ===================
@@ -553,3 +673,9 @@ fn heartbeat() {
 
 // Export candid interface
 ic_cdk::export_candid!();
+
+#[query]
+#[candid_method(query)]
+fn get_supported_currencies_list() -> Vec<String> {
+    get_supported_currencies()
+}
