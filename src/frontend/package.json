@@ -15,10 +15,13 @@
     "@dfinity/identity": "^0.19.3",
     "@dfinity/principal": "^0.19.2",
     "clsx": "^2.0.0",
+    "jsqr": "^1.4.0",
     "lucide-react": "^0.263.1",
+    "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.8.0",
+    "react-webcam": "^7.2.0",
     "tailwind-merge": "^1.14.0"
   },
   "devDependencies": {

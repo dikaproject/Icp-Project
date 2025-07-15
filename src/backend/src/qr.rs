@@ -48,7 +48,7 @@ pub async fn create_qr_code(
     let expire_time = current_time + (30 * 60 * 1_000_000_000);
 
     let qr_code = QRCode {
-        id: qr_id,
+        id: qr_id, 
         user_id,
         fiat_amount,
         fiat_currency: fiat_currency.to_uppercase(),
