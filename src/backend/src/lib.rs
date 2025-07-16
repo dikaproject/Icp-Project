@@ -349,7 +349,7 @@ async fn fetch_exchange_rate(currency: String) -> Result<ExchangeRate, String> {
     }
 
     // Try to fetch fresh rate with retry logic
-    match fetch_exchange_rate_with_retry(currency_upper.clone()).await {
+    match fetch_exchange_rate_with_retry_internal(currency_upper.clone(), cached_rate.clone()).await {
         Ok(exchange_rate) => {
             // Cache the fresh rate
             EXCHANGE_RATES.with(|rates| {
@@ -362,25 +362,27 @@ async fn fetch_exchange_rate(currency: String) -> Result<ExchangeRate, String> {
         Err(e) => {
             ic_cdk::println!("❌ Failed to fetch fresh rate: {}", e);
             
-            // If we have any cached rate (even if expired), use it
-            if let Some(rate) = cached_rate {
-                ic_cdk::println!("⚠️ Using expired cached rate for {}", currency_upper);
-                return Ok(rate);
-            }
-            
-            // As last resort, try fallback rate
-            if let Some(fallback_rate) = get_fallback_rate(&currency_upper) {
-                ic_cdk::println!("🆘 Using fallback rate for {}", currency_upper);
+            // Gunakan cache stale jika ada
+            if let Some(cached) = cached_rate {
+                let age_minutes = (ic_cdk::api::time() - cached.timestamp) / (60 * 1_000_000_000);
                 
-                // Cache the fallback rate
+                let stale_rate = ExchangeRate {
+                    currency: cached.currency,
+                    rate: cached.rate,
+                    timestamp: cached.timestamp,
+                    source: format!("coingecko_stale_{}min", age_minutes),
+                };
+                
+                // Update cache with disclaimer
                 EXCHANGE_RATES.with(|rates| {
-                    rates.borrow_mut().insert(currency_upper, fallback_rate.clone());
+                    rates.borrow_mut().insert(currency_upper.clone(), stale_rate.clone());
                 });
                 
-                return Ok(fallback_rate);
+                ic_cdk::println!("⚠️ Using stale cache for {} ({}min old)", currency_upper, age_minutes);
+                return Ok(stale_rate);
             }
             
-            Err(format!("Could not fetch rate for {}: {}", currency_upper, e))
+            Err(format!("Could not fetch current rate for {}: {}", currency_upper, e))
         }
     }
 }
@@ -973,4 +975,151 @@ ic_cdk::export_candid!();
 #[candid_method(query)]
 fn get_supported_currencies_list() -> Vec<String> {
     get_supported_currencies()
+}
+
+// ===================
+// TESTING HELPER FUNCTIONS
+// ===================
+
+// Helper function to age existing cache using existing rates.rs functions
+#[update]
+#[candid_method(update)]
+async fn age_cache(currency: String, age_minutes: u64) -> Result<String, String> {
+    let currency_upper = currency.to_uppercase();
+    
+    EXCHANGE_RATES.with(|rates| {
+        let mut rates_borrow = rates.borrow_mut();
+        
+        if let Some(rate) = rates_borrow.get(&currency_upper) {
+            // Create new rate with older timestamp
+            let new_timestamp = ic_cdk::api::time() - (age_minutes * 60 * 1_000_000_000);
+            
+            let aged_rate = ExchangeRate {
+                currency: rate.currency.clone(),
+                rate: rate.rate,
+                timestamp: new_timestamp,
+                source: format!("test_aged_{}min", age_minutes),
+            };
+            
+            rates_borrow.insert(currency_upper.clone(), aged_rate);
+            Ok(format!("Aged {} cache to {} minutes old", currency_upper, age_minutes))
+        } else {
+            Err("No cache found to age".to_string())
+        }
+    })
+}
+
+// Helper to check cache status using existing rates.rs functions
+#[query]
+#[candid_method(query)]
+fn get_cache_status(currency: String) -> String {
+    let currency_upper = currency.to_uppercase();
+    
+    EXCHANGE_RATES.with(|rates| {
+        match rates.borrow().get(&currency_upper) {
+            Some(rate) => {
+                // Use the existing functions from rates.rs
+                let age_minutes = get_cache_age_minutes(rate);
+                let is_valid = is_rate_cache_valid(rate);
+                
+                format!(
+                    "Cache: rate={}, age={}min, valid={}, source='{}', timestamp={}", 
+                    rate.rate, age_minutes, is_valid, rate.source, rate.timestamp
+                )
+            }
+            None => "No cache found".to_string()
+        }
+    })
+}
+
+// Create test stale cache using existing validation
+#[update]
+#[candid_method(update)]
+async fn create_test_stale_cache(currency: String, rate_value: f64) -> Result<String, String> {
+    let currency_upper = currency.to_uppercase();
+    
+    if !is_supported_currency(&currency_upper) {
+        return Err(format!("Unsupported currency: {}", currency_upper));
+    }
+    
+    // Create cache that's 10 minutes old (definitely stale)
+    let old_timestamp = ic_cdk::api::time() - (10 * 60 * 1_000_000_000);
+    
+    let stale_rate = ExchangeRate {
+        currency: currency_upper.clone(),
+        rate: rate_value,
+        timestamp: old_timestamp,
+        source: "test_stale".to_string(),
+    };
+    
+    // Verify it's actually stale using existing function
+    let is_valid = is_rate_cache_valid(&stale_rate);
+    let age_minutes = get_cache_age_minutes(&stale_rate);
+    
+    EXCHANGE_RATES.with(|rates| {
+        rates.borrow_mut().insert(currency_upper.clone(), stale_rate);
+    });
+    
+    Ok(format!(
+        "Created stale cache for {} (rate={}, age={}min, valid={})", 
+        currency_upper, rate_value, age_minutes, is_valid
+    ))
+}
+
+// Create test recent cache (within 5 minutes)
+#[update]
+#[candid_method(update)]
+async fn create_test_recent_cache(currency: String, rate_value: f64) -> Result<String, String> {
+    let currency_upper = currency.to_uppercase();
+    
+    if !is_supported_currency(&currency_upper) {
+        return Err(format!("Unsupported currency: {}", currency_upper));
+    }
+    
+    // Create cache that's 3 minutes old (recent)
+    let recent_timestamp = ic_cdk::api::time() - (3 * 60 * 1_000_000_000);
+    
+    let recent_rate = ExchangeRate {
+        currency: currency_upper.clone(),
+        rate: rate_value,
+        timestamp: recent_timestamp,
+        source: "test_recent".to_string(),
+    };
+    
+    // Verify it's valid using existing function
+    let is_valid = is_rate_cache_valid(&recent_rate);
+    let age_minutes = get_cache_age_minutes(&recent_rate);
+    
+    EXCHANGE_RATES.with(|rates| {
+        rates.borrow_mut().insert(currency_upper.clone(), recent_rate);
+    });
+    
+    Ok(format!(
+        "Created recent cache for {} (rate={}, age={}min, valid={})", 
+        currency_upper, rate_value, age_minutes, is_valid
+    ))
+}
+
+// Clear cache for testing
+#[update]
+#[candid_method(update)]
+async fn clear_cache(currency: String) -> Result<String, String> {
+    let currency_upper = currency.to_uppercase();
+    
+    EXCHANGE_RATES.with(|rates| {
+        rates.borrow_mut().remove(&currency_upper);
+    });
+    
+    Ok(format!("Cache cleared for {}", currency_upper))
+}
+
+// Clear all cache
+#[update]
+#[candid_method(update)]
+async fn clear_all_cache() -> Result<String, String> {
+    EXCHANGE_RATES.with(|rates| {
+        rates.borrow_mut().clear();
+    });
+    
+    Ok("All cache cleared".to_string())
 }
