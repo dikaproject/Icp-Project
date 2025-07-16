@@ -8,42 +8,45 @@ use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemor
 use ic_stable_structures::{DefaultMemoryImpl, StableBTreeMap};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use ic_cdk::api::time;
 
 mod types;
 mod rates;
 mod qr;
 mod transactions;
+mod topup;
 
 use types::*;
 use rates::*;
 use qr::*;
 use transactions::*;
+use topup::*;
 
 type Memory = VirtualMemory<DefaultMemoryImpl>;
 type UserStore = StableBTreeMap<Principal, User, Memory>;
 type TransactionStore = StableBTreeMap<String, Transaction, Memory>;
 type QRStore = StableBTreeMap<String, QRCode, Memory>;
+type TopUpStore = StableBTreeMap<String, TopUpTransaction, Memory>;
 
 thread_local! {
-    static MEMORY_MANAGER: RefCell<MemoryManager<DefaultMemoryImpl>> =
-        RefCell::new(MemoryManager::init(DefaultMemoryImpl::default()));
+    static MEMORY_MANAGER: RefCell<MemoryManager<DefaultMemoryImpl>> = RefCell::new(
+        MemoryManager::init(DefaultMemoryImpl::default())
+    );
     
     static USERS: RefCell<UserStore> = RefCell::new(
-        StableBTreeMap::init(
-            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(0))),
-        )
+        StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(0))))
     );
     
     static TRANSACTIONS: RefCell<TransactionStore> = RefCell::new(
-        StableBTreeMap::init(
-            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(1))),
-        )
+        StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(1))))
     );
     
     static QR_CODES: RefCell<QRStore> = RefCell::new(
-        StableBTreeMap::init(
-            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(2))),
-        )
+        StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(2))))
+    );
+    
+    static TOPUP_TRANSACTIONS: RefCell<TopUpStore> = RefCell::new(
+        StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(3))))
     );
     
     static EXCHANGE_RATES: RefCell<HashMap<String, ExchangeRate>> = RefCell::new(HashMap::new());
@@ -78,6 +81,7 @@ async fn register_user(wallet_address: String, username: Option<String>, email: 
         created_at: ic_cdk::api::time(),
         username,
         email,
+        balance: 0, 
     };
 
     USERS.with(|users| {
@@ -121,6 +125,202 @@ fn get_user() -> Option<User> {
 #[candid_method(query)]
 fn get_user_by_id(user_id: Principal) -> Option<User> {
     USERS.with(|users| users.borrow().get(&user_id))
+}
+
+// ===================
+// BALANCE & TOP-UP MANAGEMENT
+// ===================
+
+#[query]
+#[candid_method(query)]
+fn get_user_balance() -> Option<UserBalance> {
+    let caller = caller();
+    
+    USERS.with(|users| {
+        users.borrow().get(&caller).map(|user| {
+            UserBalance {
+                user_id: user.id,
+                balance: user.balance,
+                formatted_balance: format_balance(user.balance),
+                last_updated: time(),
+            }
+        })
+    })
+}
+
+#[update]
+#[candid_method(update)]
+async fn create_qris_topup(
+    amount: f64,
+    currency: String,
+) -> Result<TopUpTransaction, String> {
+    let caller = caller();
+    
+    // Debug print
+    ic_cdk::print(format!("Creating QRIS topup: amount={}, currency={}, caller={}", amount, currency, caller));
+    
+    let user_exists = USERS.with(|users| users.borrow().contains_key(&caller));
+    if !user_exists {
+        return Err("User not registered".to_string());
+    }
+    
+    if amount <= 0.0 {
+        return Err("Amount must be greater than 0".to_string());
+    }
+    
+    let topup = topup::create_qris_topup(caller, amount, currency).await?;
+    
+    // Debug print
+    ic_cdk::print(format!("QRIS topup created: id={}, method={:?}", topup.id, topup.payment_method));
+    
+    TOPUP_TRANSACTIONS.with(|topups| {
+        topups.borrow_mut().insert(topup.id.clone(), topup.clone());
+    });
+    
+    Ok(topup)
+}
+
+// Update fungsi create_card_topup untuk avoid double borrowing
+
+#[update]
+#[candid_method(update)]
+async fn create_card_topup(
+    amount: f64,
+    currency: String,
+    card_data: CardDataInput,
+    is_credit: bool,
+) -> Result<TopUpTransaction, String> {
+    let caller = caller();
+    
+    // Validate user exists - gunakan scope terpisah
+    let user_exists = USERS.with(|users| users.borrow().contains_key(&caller));
+    if !user_exists {
+        return Err("User not registered".to_string());
+    }
+    
+    if amount <= 0.0 {
+        return Err("Amount must be greater than 0".to_string());
+    }
+    
+    // Create topup transaction
+    let mut topup = topup::create_card_topup(caller, amount, currency, card_data, is_credit).await?;
+    
+    // Simulate card processing
+    let success = simulate_card_processing(&topup);
+    
+    // Process payment result
+    if success {
+        topup.status = TopUpStatus::Completed;
+        topup.processed_at = Some(time());
+        
+        // Update user balance in separate scope
+        let balance_updated = USERS.with(|users| {
+            let mut users_borrow = users.borrow_mut();
+            if let Some(mut user) = users_borrow.get(&caller) {
+                user.balance = user.balance.saturating_add(topup.amount);
+                users_borrow.insert(caller, user);
+                true
+            } else {
+                false
+            }
+        });
+        
+        if !balance_updated {
+            return Err("Failed to update user balance".to_string());
+        }
+    } else {
+        topup.status = TopUpStatus::Failed;
+        topup.processed_at = Some(time());
+    }
+    
+    // Store transaction
+    TOPUP_TRANSACTIONS.with(|topups| {
+        topups.borrow_mut().insert(topup.id.clone(), topup.clone());
+    });
+    
+    Ok(topup)
+}
+
+// Simulate QRIS payment claim
+#[update]
+#[candid_method(update)]
+async fn claim_qris_payment(topup_id: String) -> Result<TopUpTransaction, String> {
+    // Get topup in separate scope
+    let mut topup = TOPUP_TRANSACTIONS.with(|topups| {
+        topups.borrow().get(&topup_id).ok_or("Top-up not found".to_string())
+    })?;
+    
+    if topup.status != TopUpStatus::Pending {
+        return Err("Top-up already processed".to_string());
+    }
+    
+    if is_topup_expired(&topup) {
+        // Update to expired in separate scope
+        topup.status = TopUpStatus::Expired;
+        TOPUP_TRANSACTIONS.with(|topups| {
+            topups.borrow_mut().insert(topup_id.clone(), topup.clone());
+        });
+        return Err("Top-up expired".to_string());
+    }
+    
+    // Process successful payment
+    topup.status = TopUpStatus::Completed;
+    topup.processed_at = Some(time());
+    
+    // Update user balance in separate scope
+    let balance_updated = USERS.with(|users| {
+        let mut users_borrow = users.borrow_mut();
+        if let Some(mut user) = users_borrow.get(&topup.user_id) {
+            user.balance = user.balance.saturating_add(topup.amount);
+            users_borrow.insert(topup.user_id, user);
+            true
+        } else {
+            false
+        }
+    });
+    
+    if !balance_updated {
+        return Err("Failed to update user balance".to_string());
+    }
+    
+    // Update stored transaction in separate scope
+    TOPUP_TRANSACTIONS.with(|topups| {
+        topups.borrow_mut().insert(topup_id, topup.clone());
+    });
+    
+    Ok(topup)
+}
+
+#[query]
+#[candid_method(query)]
+fn get_topup_transaction(topup_id: String) -> Option<TopUpTransaction> {
+    TOPUP_TRANSACTIONS.with(|topups| {
+        topups.borrow().get(&topup_id)
+    })
+}
+
+#[query]
+#[candid_method(query)]
+fn get_user_topup_history() -> Vec<TopUpTransaction> {
+    let caller = caller();
+    
+    TOPUP_TRANSACTIONS.with(|topups| {
+        topups.borrow()
+            .iter()
+            .filter(|(_, topup)| topup.user_id == caller)
+            .map(|(_, topup)| topup)
+            .collect()
+    })
+}
+
+// MVP Card processing simulation
+fn simulate_card_processing(topup: &TopUpTransaction) -> bool {
+    // Simulate different outcomes based on card data
+    if !topup.payment_data.card_data.is_empty() {
+        let card = &topup.payment_data.card_data[0];
+        return !card.card_number.contains("0002"); // Decline test card
+    }
+    true // Default success
 }
 
 // ===================
@@ -314,9 +514,16 @@ async fn process_payment(qr_id: String, transaction_hash: Option<String>) -> Res
         return Err("Anonymous users cannot make payments".to_string());
     }
 
+    // Check if payer is registered
+    let payer_exists = USERS.with(|users| users.borrow().contains_key(&caller));
+    if !payer_exists {
+        return Err("Payer not registered".to_string());
+    }
+
     // Get and validate QR code
-    let mut qr_code = QR_CODES.with(|qr_codes| qr_codes.borrow().get(&qr_id))
-        .ok_or("QR code not found")?;
+    let qr_code = QR_CODES.with(|qr_codes| {
+        qr_codes.borrow().get(&qr_id)
+    }).ok_or("QR code not found")?;
 
     // Validate QR code
     is_qr_code_valid(&qr_code)?;
@@ -326,25 +533,82 @@ async fn process_payment(qr_id: String, transaction_hash: Option<String>) -> Res
         return Err("Cannot pay to yourself".to_string());
     }
 
+    // Check if recipient is registered
+    let recipient_exists = USERS.with(|users| users.borrow().contains_key(&qr_code.user_id));
+    if !recipient_exists {
+        return Err("Recipient not registered".to_string());
+    }
+
     // Validate transaction amount
     validate_transaction_amount(qr_code.icp_amount)?;
+
+    // Check payer has sufficient balance
+    let payer_balance = USERS.with(|users| {
+        users.borrow().get(&caller).map(|u| u.balance).unwrap_or(0)
+    });
+
+    let total_cost = qr_code.icp_amount + calculate_transaction_fee(qr_code.icp_amount);
+    if payer_balance < total_cost {
+        return Err("Insufficient balance".to_string());
+    }
 
     // Create transaction
     let transaction = create_transaction(&qr_code, caller, transaction_hash)?;
 
-    // Mark QR code as used
-    mark_qr_as_used(&mut qr_code);
-    QR_CODES.with(|qr_codes| {
-        qr_codes.borrow_mut().insert(qr_id.clone(), qr_code);
+    // Process the payment (update balances)
+    let payment_success = USERS.with(|users| {
+        let mut users_borrow = users.borrow_mut();
+        
+        // Get both users
+        let mut payer = users_borrow.get(&caller).ok_or("Payer not found")?;
+        let mut recipient = users_borrow.get(&qr_code.user_id).ok_or("Recipient not found")?;
+        
+        // Update balances
+        payer.balance = payer.balance.saturating_sub(total_cost);
+        recipient.balance = recipient.balance.saturating_add(qr_code.icp_amount);
+        
+        // Save updated users
+        users_borrow.insert(caller, payer);
+        users_borrow.insert(qr_code.user_id, recipient);
+        
+        Ok::<(), String>(())
     });
 
-    // Store transaction
-    TRANSACTIONS.with(|transactions| {
-        transactions.borrow_mut().insert(transaction.id.clone(), transaction.clone());
-    });
+    match payment_success {
+        Ok(_) => {
+            // Mark QR code as used
+            QR_CODES.with(|qr_codes| {
+                let mut qr_borrow = qr_codes.borrow_mut();
+                if let Some(mut qr) = qr_borrow.get(&qr_id) {
+                    qr.is_used = true;
+                    qr_borrow.insert(qr_id.clone(), qr);
+                }
+            });
 
-    ic_cdk::println!("Payment processed: {} -> {}", caller.to_text(), transaction.to.to_text());
-    Ok(transaction)
+            // Update transaction status to completed
+            let mut completed_transaction = transaction;
+            completed_transaction.status = TransactionStatus::Completed;
+
+            // Store transaction
+            TRANSACTIONS.with(|transactions| {
+                transactions.borrow_mut().insert(completed_transaction.id.clone(), completed_transaction.clone());
+            });
+
+            ic_cdk::println!("Payment processed: {} -> {}", caller.to_text(), qr_code.user_id.to_text());
+            Ok(completed_transaction)
+        },
+        Err(e) => {
+            // Create failed transaction
+            let mut failed_transaction = transaction;
+            failed_transaction.status = TransactionStatus::Failed;
+            
+            TRANSACTIONS.with(|transactions| {
+                transactions.borrow_mut().insert(failed_transaction.id.clone(), failed_transaction.clone());
+            });
+            
+            Err(e)
+        }
+    }
 }
 
 #[update]
@@ -356,22 +620,29 @@ async fn update_transaction_status_endpoint(
 ) -> Result<Transaction, String> {
     let caller = caller();
     
+    // Get transaction first
+    let transaction = TRANSACTIONS.with(|transactions| {
+        transactions.borrow().get(&transaction_id)
+    }).ok_or("Transaction not found".to_string())?;
+    
+    // Check authorization
+    if transaction.from != caller && transaction.to != caller {
+        return Err("Unauthorized to update this transaction".to_string());
+    }
+    
+    // Update transaction
+    let mut updated_transaction = transaction;
+    updated_transaction.status = status;
+    if let Some(h) = hash {
+        updated_transaction.transaction_hash = Some(h); // FIX: hash -> transaction_hash
+    }
+    
+    // Store updated transaction
     TRANSACTIONS.with(|transactions| {
-        let mut transactions_borrow = transactions.borrow_mut();
-        match transactions_borrow.get(&transaction_id) {
-            Some(mut transaction) => {
-                // Only allow the parties involved to update status
-                if transaction.from != caller && transaction.to != caller {
-                    return Err("Unauthorized to update this transaction".to_string());
-                }
-                
-                update_transaction_status(&mut transaction, status, hash);
-                transactions_borrow.insert(transaction_id, transaction.clone());
-                Ok(transaction)
-            }
-            None => Err("Transaction not found".to_string()),
-        }
-    })
+        transactions.borrow_mut().insert(transaction_id, updated_transaction.clone());
+    });
+    
+    Ok(updated_transaction)
 }
 
 #[query]
@@ -429,45 +700,69 @@ fn get_recent_transactions_public() -> Vec<Transaction> {
 #[candid_method(query)]
 fn get_user_stats() -> Option<UserStats> {
     let caller = caller();
-    USERS.with(|users| {
-        if users.borrow().get(&caller).is_none() {
-            return None;
+    
+    // Get user info first
+    let user_info = USERS.with(|users| {
+        users.borrow().get(&caller).map(|u| (u.balance, true))
+    });
+    
+    if user_info.is_none() {
+        return None;
+    }
+    
+    let (current_balance, _) = user_info.unwrap();
+    
+    // Calculate transaction stats in separate scope
+    let (total_sent, total_received, transaction_count) = TRANSACTIONS.with(|transactions| {
+        let mut sent = 0u64;
+        let mut received = 0u64;
+        let mut count = 0u64;
+        
+        for (_, tx) in transactions.borrow().iter() {
+            if tx.from == caller {
+                sent += tx.amount;
+                count += 1;
+            } else if tx.to == caller {
+                received += tx.amount;
+                count += 1;
+            }
         }
         
-        // Calculate transaction stats
-        let (total_sent, total_received, transaction_count) = TRANSACTIONS.with(|transactions| {
-            let mut sent = 0u64;
-            let mut received = 0u64;
-            let mut count = 0u64;
-            
-            for (_, tx) in transactions.borrow().iter() {
-                if tx.from == caller {
-                    sent += tx.amount;
-                    count += 1;
-                } else if tx.to == caller {
-                    received += tx.amount;
-                    count += 1;
-                }
+        (sent, received, count)
+    });
+    
+    // Calculate QR codes generated in separate scope
+    let qr_codes_generated = QR_CODES.with(|qr_codes| {
+        qr_codes
+            .borrow()
+            .iter()
+            .filter(|(_, qr)| qr.user_id == caller)
+            .count() as u64
+    });
+    
+    // Calculate topup stats in separate scope
+    let (total_topup, topup_count) = TOPUP_TRANSACTIONS.with(|topups| {
+        let mut total = 0u64;
+        let mut count = 0u64;
+        
+        for (_, topup) in topups.borrow().iter() {
+            if topup.user_id == caller && topup.status == TopUpStatus::Completed {
+                total += topup.amount;
+                count += 1;
             }
-            
-            (sent, received, count)
-        });
+        }
         
-        // Calculate QR codes generated
-        let qr_codes_generated = QR_CODES.with(|qr_codes| {
-            qr_codes
-                .borrow()
-                .iter()
-                .filter(|(_, qr)| qr.user_id == caller)
-                .count() as u64
-        });
-        
-        Some(UserStats {
-            total_sent,
-            total_received,
-            transaction_count,
-            qr_codes_generated,
-        })
+        (total, count)
+    });
+
+    Some(UserStats {
+        total_sent,
+        total_received,
+        transaction_count,
+        qr_codes_generated,
+        current_balance,
+        topup_count,
+        total_topup,
     })
 }
 

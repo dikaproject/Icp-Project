@@ -4,6 +4,7 @@ type User = record {
   created_at : nat64;
   username : opt text;
   email : opt text;
+  balance : nat64;
 };
 
 type Transaction = record {
@@ -53,6 +54,9 @@ type UserStats = record {
   total_received : nat64;
   transaction_count : nat64;
   qr_codes_generated : nat64;
+  total_topup : nat64;
+  topup_count : nat64;
+  current_balance : nat64;
 };
 
 type QRDisplayInfo = record {
@@ -90,11 +94,84 @@ type SystemStats = record {
   canister_balance : nat64;
 };
 
+type TopUpTransaction = record {
+  id : text;
+  user_id : principal;
+  amount : nat64;
+  fiat_amount : float64;
+  fiat_currency : text;
+  payment_method : TopUpMethod;
+  payment_data : TopUpPaymentData;
+  status : TopUpStatus;
+  created_at : nat64;
+  processed_at : opt nat64;
+  reference_id : text;
+};
+
+type TopUpMethod = variant {
+  QRIS;
+  CreditCard;
+  DebitCard;
+  Web3Wallet;
+};
+
+type TopUpStatus = variant {
+  Pending;
+  Processing;
+  Completed;
+  Failed;
+  Expired;
+};
+
+type TopUpPaymentData = record {
+  qris_data : vec QRISData;
+  card_data : vec CardData;
+  web3_data : vec Web3Data;
+};
+
+type QRISData = record {
+  qr_code_url : text;
+  qr_code_data : text;
+  merchant_id : text;
+  expire_time : nat64;
+};
+
+type CardData = record {
+  card_number : text;
+  card_type : text;
+  payment_gateway : text;
+  transaction_id : text;
+};
+
+type Web3Data = record {
+  wallet_address : text;
+  blockchain_network : text;
+  transaction_hash : opt text;
+  confirmation_count : nat32;
+};
+
+type UserBalance = record {
+  user_id : principal;
+  balance : nat64;
+  formatted_balance : text;
+  last_updated : nat64;
+};
+
+type CardDataInput = record {
+  card_number : text;
+  expiry_month : text;
+  expiry_year : text;
+  cvv : text;
+  cardholder_name : text;
+};
+
 type Result = variant { Ok : User; Err : text };
 type Result_1 = variant { Ok : ExchangeRate; Err : text };
 type Result_2 = variant { Ok : QRCode; Err : text };
 type Result_3 = variant { Ok : Transaction; Err : text };
 type Result_4 = variant { Ok : QRDisplayInfo; Err : text };
+type Result_5 = variant { Ok : TopUpTransaction; Err : text };
+type Result_6 = variant { Ok : UserBalance; Err : text };
 
 service : {
   // User management
@@ -128,6 +205,14 @@ service : {
   cleanup_expired_qr_codes : () -> (nat64);
   cleanup_expired_transactions : () -> (nat64);
   get_system_stats : () -> (SystemStats) query;
+
+  // Balance & Top-up Management
+  get_user_balance : () -> (opt UserBalance) query;
+  create_qris_topup : (float64, text) -> (Result_5);
+  create_card_topup : (float64, text, CardDataInput, bool) -> (Result_5);
+  claim_qris_payment : (text) -> (Result_5);
+  get_topup_transaction : (text) -> (opt TopUpTransaction) query;
+  get_user_topup_history : () -> (vec TopUpTransaction) query;
   
   // HTTP transform
   transform_response : (record {
@@ -143,3 +228,4 @@ service : {
     headers : vec record { text; text };
   }) query;
 }
+

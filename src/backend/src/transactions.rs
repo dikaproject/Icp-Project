@@ -107,6 +107,9 @@ pub fn calculate_user_stats(transactions: &[Transaction], user_id: Principal) ->
         total_received,
         transaction_count,
         qr_codes_generated: 0, // This should be calculated separately
+        total_topup: 0,        // Add missing field
+        topup_count: 0,        // Add missing field
+        current_balance: 0,    // Add missing field
     }
 }
 
@@ -234,8 +237,8 @@ mod tests {
         let id1 = generate_transaction_id(from, to, 1000000);
         let id2 = generate_transaction_id(from, to, 1000000);
         
-        assert!(id1.starts_with("TX_"));
-        assert!(id2.starts_with("TX_"));
+        assert!(id1.starts_with("tx_"));
+        assert!(id2.starts_with("tx_"));
         assert_ne!(id1, id2); // Should be unique due to timestamp
     }
 

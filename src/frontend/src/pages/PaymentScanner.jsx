@@ -51,29 +51,55 @@ const PaymentScanner = () => {
   }
 
   const handlePayment = async () => {
-    if (!backend || !qrId.trim()) return
+  if (!backend || !qrId.trim()) return
 
-    setPaymentLoading(true)
-    setError('')
+  setPaymentLoading(true)
+  setError('')
 
-    try {
-      const result = await backend.processPayment(qrId.trim())
+  try {
+    console.log('Processing payment for QR ID:', qrId.trim())
+    const result = await backend.processPayment(qrId.trim())
+    console.log('Payment result:', result)
 
-      if (result.Err) {
-        setError(result.Err)
-        return
-      }
+    if (result.Err) {
+      setError(result.Err)
+      return
+    }
 
+    if (result.Ok) {
+      console.log('Payment successful! Transaction:', result.Ok)
       setPaymentSuccess(true)
       setQrInfo(null)
       setQrId('')
-    } catch (error) {
-      setError('Failed to process payment')
-      console.error('Error processing payment:', error)
-    } finally {
-      setPaymentLoading(false)
+      
+      // Optional: Refresh user stats or balance
+      setTimeout(() => {
+        window.location.reload() // Simple refresh to update balance
+      }, 2000)
+    } else {
+      setError('Unexpected response format')
     }
+
+  } catch (error) {
+    console.error('Payment processing error:', error)
+    console.error('Error details:', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    })
+    
+    // Handle specific errors
+    if (error.message.includes('type mismatch')) {
+      setError('Payment processed but response format error. Please refresh the page.')
+    } else if (error.message.includes('principal')) {
+      setError('Authentication error. Please reconnect your wallet.')
+    } else {
+      setError('Payment may have been processed. Please check your transaction history.')
+    }
+  } finally {
+    setPaymentLoading(false)
   }
+}
 
   const formatICP = (amount) => {
     return (Number(amount) / 100_000_000).toFixed(6)
@@ -209,10 +235,9 @@ const PaymentScanner = () => {
 
                 <div>
                   <span className="text-slate-600">Status:</span>
-                  <div className={`font-medium ${
-                    qrInfo.is_expired ? 'text-red-600' :
-                    qrInfo.is_used ? 'text-gray-600' : 'text-green-600'
-                  }`}>
+                  <div className={`font-medium ${qrInfo.is_expired ? 'text-red-600' :
+                      qrInfo.is_used ? 'text-gray-600' : 'text-green-600'
+                    }`}>
                     {qrInfo.is_expired ? 'Expired' :
                       qrInfo.is_used ? 'Used' : 'Active'}
                   </div>

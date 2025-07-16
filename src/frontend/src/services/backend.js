@@ -8,6 +8,78 @@ export const idlFactory = ({ IDL }) => {
     'created_at': IDL.Nat64,
     'username': IDL.Opt(IDL.Text),
     'email': IDL.Opt(IDL.Text),
+    'balance': IDL.Nat64,
+  })
+
+  const UserBalance = IDL.Record({
+    'user_id': IDL.Principal,
+    'balance': IDL.Nat64,
+    'formatted_balance': IDL.Text,
+    'last_updated': IDL.Nat64,
+  })
+
+  const TopUpMethod = IDL.Variant({
+    'QRIS': IDL.Null,
+    'CreditCard': IDL.Null,
+    'DebitCard': IDL.Null,
+    'Web3Wallet': IDL.Null,
+  })
+
+  const TopUpStatus = IDL.Variant({
+    'Pending': IDL.Null,
+    'Processing': IDL.Null,
+    'Completed': IDL.Null,
+    'Failed': IDL.Null,
+    'Expired': IDL.Null,
+  })
+
+  const QRISData = IDL.Record({
+    'qr_code_url': IDL.Text,
+    'qr_code_data': IDL.Text,
+    'merchant_id': IDL.Text,
+    'expire_time': IDL.Nat64,
+  })
+
+  const CardData = IDL.Record({
+    'card_number': IDL.Text,
+    'card_type': IDL.Text,
+    'payment_gateway': IDL.Text,
+    'transaction_id': IDL.Text,
+  })
+
+  const Web3Data = IDL.Record({
+    'wallet_address': IDL.Text,
+    'blockchain_network': IDL.Text,
+    'transaction_hash': IDL.Opt(IDL.Text),
+    'confirmation_count': IDL.Nat32,
+  })
+
+  const TopUpPaymentData = IDL.Record({
+    'qris_data': IDL.Vec(QRISData),
+    'card_data': IDL.Vec(CardData),
+    'web3_data': IDL.Vec(Web3Data),
+  })
+
+  const TopUpTransaction = IDL.Record({
+    'id': IDL.Text,
+    'user_id': IDL.Principal,
+    'amount': IDL.Nat64,
+    'fiat_amount': IDL.Float64,
+    'fiat_currency': IDL.Text,
+    'payment_method': TopUpMethod,
+    'payment_data': TopUpPaymentData,
+    'status': TopUpStatus,
+    'created_at': IDL.Nat64,
+    'processed_at': IDL.Opt(IDL.Nat64),
+    'reference_id': IDL.Text,
+  })
+
+  const CardDataInput = IDL.Record({
+    'card_number': IDL.Text,
+    'expiry_month': IDL.Text,
+    'expiry_year': IDL.Text,
+    'cvv': IDL.Text,
+    'cardholder_name': IDL.Text,
   })
 
   const UserStats = IDL.Record({
@@ -15,6 +87,9 @@ export const idlFactory = ({ IDL }) => {
     'total_received': IDL.Nat64,
     'transaction_count': IDL.Nat64,
     'qr_codes_generated': IDL.Nat64,
+    'total_topup': IDL.Nat64,
+    'topup_count': IDL.Nat64,
+    'current_balance': IDL.Nat64,
   })
 
   const SystemStats = IDL.Record({
@@ -71,28 +146,69 @@ export const idlFactory = ({ IDL }) => {
     'description': IDL.Opt(IDL.Text),
   })
 
-  const Result = IDL.Variant({ 'Ok': User, 'Err': IDL.Text })
-  const Result_1 = IDL.Variant({ 'Ok': ExchangeRate, 'Err': IDL.Text })
-  const Result_2 = IDL.Variant({ 'Ok': QRCode, 'Err': IDL.Text })
-  const Result_4 = IDL.Variant({ 'Ok': QRDisplayInfo, 'Err': IDL.Text })
+  const TransactionStatus = IDL.Variant({
+    'Pending': IDL.Null,
+    'Processing': IDL.Null,
+    'Completed': IDL.Null,
+    'Failed': IDL.Null,
+    'Expired': IDL.Null,
+  })
+
+  const Transaction = IDL.Record({
+    'id': IDL.Text,
+    'from': IDL.Principal,
+    'to': IDL.Principal,
+    'amount': IDL.Nat64,
+    'fiat_currency': IDL.Text,
+    'fiat_amount': IDL.Float64,
+    'icp_amount': IDL.Nat64,
+    'timestamp': IDL.Nat64,
+    'status': TransactionStatus,
+    'qr_id': IDL.Text,
+    'transaction_hash': IDL.Opt(IDL.Text),
+    'fee': IDL.Nat64,
+  })
+
+  // Define all Result types
+  const Result_User = IDL.Variant({ 'Ok': User, 'Err': IDL.Text })
+  const Result_ExchangeRate = IDL.Variant({ 'Ok': ExchangeRate, 'Err': IDL.Text })
+  const Result_QRCode = IDL.Variant({ 'Ok': QRCode, 'Err': IDL.Text })
+  const Result_QRDisplayInfo = IDL.Variant({ 'Ok': QRDisplayInfo, 'Err': IDL.Text })
+  const Result_TopUpTransaction = IDL.Variant({ 'Ok': TopUpTransaction, 'Err': IDL.Text })
+  const Result_Transaction = IDL.Variant({ 'Ok': Transaction, 'Err': IDL.Text }) // FIX: Add this
 
   return IDL.Service({
-    'register_user': IDL.Func([IDL.Text, IDL.Opt(IDL.Text), IDL.Opt(IDL.Text)], [Result], []),
+    // User management
+    'register_user': IDL.Func([IDL.Text, IDL.Opt(IDL.Text), IDL.Opt(IDL.Text)], [Result_User], []),
     'get_user': IDL.Func([], [IDL.Opt(User)], ['query']),
     'get_user_stats': IDL.Func([], [IDL.Opt(UserStats)], ['query']),
     'get_system_stats': IDL.Func([], [SystemStats], ['query']),
     'get_user_transaction_summaries': IDL.Func([], [IDL.Vec(TransactionSummary)], ['query']),
     'get_supported_currencies_list': IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
-    'fetch_exchange_rate': IDL.Func([IDL.Text], [Result_1], []),
-    'generate_qr': IDL.Func([IDL.Float64, IDL.Text, IDL.Opt(IDL.Text)], [Result_2], []),
-    'validate_qr_code': IDL.Func([IDL.Text], [Result_4], []),
-    'process_payment': IDL.Func([IDL.Text, IDL.Opt(IDL.Text)], [Result], []),
+    
+    // Exchange rates
+    'fetch_exchange_rate': IDL.Func([IDL.Text], [Result_ExchangeRate], []),
+    
+    // QR code management
+    'generate_qr': IDL.Func([IDL.Float64, IDL.Text, IDL.Opt(IDL.Text)], [Result_QRCode], []),
+    'validate_qr_code': IDL.Func([IDL.Text], [Result_QRDisplayInfo], []),
+    
+    // Transaction management - FIX: Use Result_Transaction
+    'process_payment': IDL.Func([IDL.Text, IDL.Opt(IDL.Text)], [Result_Transaction], []),
+    
+    // Balance & Top-up Management
+    'get_user_balance': IDL.Func([], [IDL.Opt(UserBalance)], ['query']),
+    'create_qris_topup': IDL.Func([IDL.Float64, IDL.Text], [Result_TopUpTransaction], []),
+    'create_card_topup': IDL.Func([IDL.Float64, IDL.Text, CardDataInput, IDL.Bool], [Result_TopUpTransaction], []),
+    'claim_qris_payment': IDL.Func([IDL.Text], [Result_TopUpTransaction], []),
+    'get_topup_transaction': IDL.Func([IDL.Text], [IDL.Opt(TopUpTransaction)], ['query']),
+    'get_user_topup_history': IDL.Func([], [IDL.Vec(TopUpTransaction)], ['query']),
   })
 }
 
 export const createActor = (canisterId, options = {}) => {
   const host = options.host || import.meta.env.VITE_IC_HOST || 'http://localhost:4943'
-  const agent = options.agent || new HttpAgent({ 
+  const agent = options.agent || new HttpAgent({
     host,
     identity: options.identity
   })
@@ -120,19 +236,19 @@ export class PaymentBackendService {
   async registerUser(walletAddress, username, email) {
     try {
       const result = await this.actor.register_user(
-        walletAddress, 
-        username ? [username] : [], 
+        walletAddress,
+        username ? [username] : [],
         email ? [email] : []
       )
       return result
     } catch (error) {
       console.error('Registration service error:', error)
-      
+
       // Handle specific certificate errors
       if (error.message.includes('certificate') || error.message.includes('signature')) {
         throw new Error('Connection failed. Please ensure DFX is running and try again.')
       }
-      
+
       throw new Error(`Registration failed: ${error.message}`)
     }
   }
@@ -143,12 +259,12 @@ export class PaymentBackendService {
       return result.length > 0 ? result[0] : null
     } catch (error) {
       console.error('Failed to get user:', error)
-      
+
       // Handle specific certificate errors
       if (error.message.includes('certificate') || error.message.includes('signature')) {
         throw new Error('Connection failed. Please ensure DFX is running and try again.')
       }
-      
+
       return null
     }
   }
@@ -202,8 +318,8 @@ export class PaymentBackendService {
   async generateQR(fiatAmount, currency, description) {
     try {
       return await this.actor.generate_qr(
-        fiatAmount, 
-        currency, 
+        fiatAmount,
+        currency,
         description ? [description] : []
       )
     } catch (error) {
@@ -223,13 +339,85 @@ export class PaymentBackendService {
 
   async processPayment(qrId, transactionHash) {
     try {
-      return await this.actor.process_payment(
-        qrId, 
+      console.log('Processing payment for QR:', qrId)
+      const result = await this.actor.process_payment(
+        qrId,
         transactionHash ? [transactionHash] : []
       )
+      console.log('Payment result:', result)
+      return result
     } catch (error) {
       console.error('Payment processing error:', error)
+      console.error('Error details:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      })
       return { Err: `Payment processing failed: ${error.message}` }
+    }
+  }
+
+  async getUserTopupHistory() {
+    try {
+      return await this.actor.get_user_topup_history()
+    } catch (error) {
+      console.error('Get topup history error:', error)
+      return []
+    }
+  }
+
+  async getUserBalance() {
+    try {
+      return await this.actor.get_user_balance()
+    } catch (error) {
+      console.error('Get balance error:', error)
+      return null
+    }
+  }
+
+  async createQRISTopup(amount, currency) {
+    try {
+      console.log('Creating QRIS topup:', { amount, currency })
+      const result = await this.actor.create_qris_topup(amount, currency)
+      console.log('Raw QRIS result:', result)
+      return result
+    } catch (error) {
+      console.error('QRIS topup error details:', error)
+      console.error('Error message:', error.message)
+      console.error('Error stack:', error.stack)
+      return { Err: error.message }
+    }
+  }
+
+  async createCardTopup(amount, currency, cardData, isCredit) {
+    try {
+      return await this.actor.create_card_topup(
+        amount,
+        currency,
+        cardData,
+        isCredit
+      )
+    } catch (error) {
+      console.error('Card topup error:', error)
+      return { Err: error.message }
+    }
+  }
+
+  async claimQRISPayment(topupId) {
+    try {
+      return await this.actor.claim_qris_payment(topupId)
+    } catch (error) {
+      console.error('Claim QRIS error:', error)
+      return { Err: error.message }
+    }
+  }
+
+  async getTopupTransaction(topupId) {
+    try {
+      return await this.actor.get_topup_transaction(topupId)
+    } catch (error) {
+      console.error('Get topup transaction error:', error)
+      return null
     }
   }
 }

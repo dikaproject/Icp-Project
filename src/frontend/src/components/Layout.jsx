@@ -9,7 +9,8 @@ import {
   Home,
   LogIn,
   LogOut,
-  User
+  User,
+  CreditCard
 } from 'lucide-react'
 
 const Layout = ({ children }) => {
@@ -19,6 +20,7 @@ const Layout = ({ children }) => {
   const navigation = [
     { name: 'Home', href: '/', icon: Home },
     { name: 'Dashboard', href: '/dashboard', icon: Wallet },
+    { name: 'Top Up', href: '/topup', icon: CreditCard },
     { name: 'Generate QR', href: '/generate', icon: QrCode },
     { name: 'Scan Payment', href: '/scan', icon: ScanLine },
     { name: 'History', href: '/history', icon: History },
