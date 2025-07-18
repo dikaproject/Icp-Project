@@ -20,6 +20,8 @@ export const ICPProvider = ({ children }) => {
   const [actor, setActor] = useState(null)
   const [backend, setBackend] = useState(null)
   const [user, setUser] = useState(null)
+  const [userPreferences, setUserPreferences] = useState(null)
+  const [activeSession, setActiveSession] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -109,6 +111,12 @@ export const ICPProvider = ({ children }) => {
     // Try to load user data
     await loadUserData(backendService)
     
+    // Try to load user preferences
+    await loadUserPreferences(backendService)
+    
+    // Create user session
+    await createUserSession(backendService)
+    
     // Store auth state and identity for next session
     localStorage.setItem('icp_auth_state', 'authenticated')
     localStorage.setItem('icp_dev_identity_simple', JSON.stringify({
@@ -153,10 +161,21 @@ export const ICPProvider = ({ children }) => {
       setIsLoading(true)
       setError(null)
       
+      // End active session before logout
+      if (activeSession && backend) {
+        try {
+          await backend.endUserSession(activeSession.session_id)
+        } catch (err) {
+          console.warn('Failed to end session:', err)
+        }
+      }
+      
       setIsAuthenticated(false)
       setIdentity(null)
       setPrincipal(null)
       setUser(null)
+      setUserPreferences(null)
+      setActiveSession(null)
       
       // Clear stored auth state
       localStorage.removeItem('icp_auth_state')
@@ -187,6 +206,40 @@ export const ICPProvider = ({ children }) => {
         console.warn('Failed to load user data:', err.message)
       }
       
+      return null
+    }
+  }
+
+  const loadUserPreferences = async (backendService = backend) => {
+    try {
+      if (!backendService) return null
+      
+      const preferences = await backendService.getUserPreferences()
+      setUserPreferences(preferences)
+      return preferences
+    } catch (err) {
+      console.error('Load preferences error:', err)
+      return null
+    }
+  }
+
+  const createUserSession = async (backendService = backend) => {
+    try {
+      if (!backendService) return null
+      
+      // Get user's IP and user agent
+      const ipAddress = '127.0.0.1' // In production, get from server
+      const userAgent = navigator.userAgent
+      
+      const sessionResult = await backendService.createUserSession(ipAddress, userAgent)
+      if (sessionResult.Ok) {
+        setActiveSession(sessionResult.Ok)
+        return sessionResult.Ok
+      }
+      
+      return null
+    } catch (err) {
+      console.error('Session creation error:', err)
       return null
     }
   }
@@ -222,6 +275,92 @@ export const ICPProvider = ({ children }) => {
       } else {
         return { success: false, error: err.message }
       }
+    }
+  }
+
+  const updateUserPreferences = async (preferences) => {
+    try {
+      if (!backend) {
+        throw new Error('Backend not initialized')
+      }
+      
+      const result = await backend.updateUserPreferences(preferences)
+      
+      if (result.Ok) {
+        setUserPreferences(result.Ok)
+        return { success: true, preferences: result.Ok }
+      } else {
+        return { success: false, error: result.Err }
+      }
+    } catch (err) {
+      console.error('Update preferences error:', err)
+      return { success: false, error: err.message }
+    }
+  }
+
+  // Balance history functions
+  const getUserBalanceHistory = async () => {
+    try {
+      if (!backend) return []
+      return await backend.getUserBalanceHistory()
+    } catch (err) {
+      console.error('Get balance history error:', err)
+      return []
+    }
+  }
+
+  const getAllBalanceChanges = async () => {
+    try {
+      if (!backend) return []
+      return await backend.getAllBalanceChanges()
+    } catch (err) {
+      console.error('Get all balance changes error:', err)
+      return []
+    }
+  }
+
+  // QR usage history functions
+  const getQRUsageHistory = async (qrId) => {
+    try {
+      if (!backend) return []
+      return await backend.getQRUsageHistory(qrId)
+    } catch (err) {
+      console.error('Get QR usage history error:', err)
+      return []
+    }
+  }
+
+  const getAllQRUsageLogs = async () => {
+    try {
+      if (!backend) return []
+      return await backend.getAllQRUsageLogs()
+    } catch (err) {
+      console.error('Get all QR usage logs error:', err)
+      return []
+    }
+  }
+
+  // Session management functions
+  const getActiveSessions = async () => {
+    try {
+      if (!backend) return []
+      return await backend.getActiveSessions()
+    } catch (err) {
+      console.error('Get active sessions error:', err)
+      return []
+    }
+  }
+
+  const updateSessionActivity = async () => {
+    try {
+      if (!backend || !activeSession) return
+      
+      const result = await backend.updateSessionActivity(activeSession.session_id)
+      if (result.Ok) {
+        setActiveSession(result.Ok)
+      }
+    } catch (err) {
+      console.error('Update session activity error:', err)
     }
   }
 
@@ -323,6 +462,14 @@ export const ICPProvider = ({ children }) => {
     }
   }
 
+  // Auto-refresh session activity
+  useEffect(() => {
+    if (isAuthenticated && activeSession) {
+      const interval = setInterval(updateSessionActivity, 5 * 60 * 1000) // 5 minutes
+      return () => clearInterval(interval)
+    }
+  }, [isAuthenticated, activeSession])
+
   const value = {
     isAuthenticated,
     identity,
@@ -330,12 +477,20 @@ export const ICPProvider = ({ children }) => {
     actor,
     backend,
     user,
+    userPreferences,
+    activeSession,
     isLoading,
     error,
     login,
     logout,
     registerUser,
+    updateUserPreferences,
     loadUserData,
+    getUserBalanceHistory,
+    getAllBalanceChanges,
+    getQRUsageHistory,
+    getAllQRUsageLogs,
+    getActiveSessions,
     getUserStats,
     getSystemStats,
     getUserTransactionSummaries,

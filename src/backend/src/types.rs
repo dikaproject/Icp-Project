@@ -70,6 +70,139 @@ pub enum TransactionStatus {
 }
 
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct BalanceChangeLog {
+    pub id: String,
+    pub user_id: Principal,
+    pub change_type: BalanceChangeType,
+    pub amount: u64,
+    pub previous_balance: u64,
+    pub new_balance: u64,
+    pub timestamp: u64,
+    pub reference_id: String, // transaction_id or topup_id
+    pub description: String,
+}
+
+impl Storable for BalanceChangeLog {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        Cow::Owned(candid::encode_one(self).unwrap())
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        candid::decode_one(&bytes).unwrap()
+    }
+
+    const BOUND: Bound = Bound::Bounded {
+        max_size: 1024,
+        is_fixed_size: false,
+    };
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub enum BalanceChangeType {
+    TopupCompleted,
+    PaymentSent,
+    PaymentReceived,
+    FeeDeducted,
+    Refund,
+    Adjustment,
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct QRUsageLog {
+    pub id: String,
+    pub qr_id: String,
+    pub user_id: Principal,
+    pub used_by: Principal,
+    pub transaction_id: String,
+    pub timestamp: u64,
+    pub usage_type: QRUsageType,
+}
+
+impl Storable for QRUsageLog {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        Cow::Owned(candid::encode_one(self).unwrap())
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        candid::decode_one(&bytes).unwrap()
+    }
+
+    const BOUND: Bound = Bound::Bounded {
+        max_size: 1024,
+        is_fixed_size: false,
+    };
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub enum QRUsageType {
+    PaymentCompleted,
+    PaymentFailed,
+    PaymentExpired,
+}
+
+// Add User Preferences (Mutable)
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct UserPreferences {
+    pub user_id: Principal,
+    pub preferred_currency: String,
+    pub notification_settings: NotificationSettings,
+    pub ui_theme: String,
+    pub language: String,
+    pub timezone: String,
+    pub updated_at: u64,
+}
+
+impl Storable for UserPreferences {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        Cow::Owned(candid::encode_one(self).unwrap())
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        candid::decode_one(&bytes).unwrap()
+    }
+
+    const BOUND: Bound = Bound::Bounded {
+        max_size: 1024,
+        is_fixed_size: false,
+    };
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct NotificationSettings {
+    pub email_notifications: bool,
+    pub push_notifications: bool,
+    pub transaction_alerts: bool,
+    pub marketing_emails: bool,
+}
+
+// Add Session Data (Mutable)
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct UserSession {
+    pub user_id: Principal,
+    pub session_id: String,
+    pub created_at: u64,
+    pub last_activity: u64,
+    pub ip_address: String,
+    pub user_agent: String,
+    pub is_active: bool,
+}
+
+impl Storable for UserSession {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        Cow::Owned(candid::encode_one(self).unwrap())
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        candid::decode_one(&bytes).unwrap()
+    }
+
+    const BOUND: Bound = Bound::Bounded {
+        max_size: 1024,
+        is_fixed_size: false,
+    };
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct QRCode {
     pub id: String,
     pub user_id: Principal,

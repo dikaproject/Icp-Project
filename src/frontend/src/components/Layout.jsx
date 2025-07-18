@@ -24,6 +24,7 @@ const Layout = ({ children }) => {
     { name: 'Generate QR', href: '/generate', icon: QrCode },
     { name: 'Scan Payment', href: '/scan', icon: ScanLine },
     { name: 'History', href: '/history', icon: History },
+    { name: 'Network Stats', href: '/network', icon: Wallet } // New navigation item
   ]
 
   const handleAuthAction = async () => {

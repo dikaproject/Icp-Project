@@ -9,6 +9,7 @@ import PaymentScanner from './pages/PaymentScanner.jsx'
 import TransactionHistory from './pages/TransactionHistory.jsx'
 import TopUp from './pages/TopUp.jsx'
 import ClaimQRIS from './pages/ClaimQRIS.jsx'
+import NetworkStats from './pages/NetworkStats.jsx'
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
                 <Route path="/scan" element={<PaymentScanner />} />
                 <Route path="/history" element={<TransactionHistory />} />
                 <Route path="/topup" element={<TopUp />} />
+                <Route path="/network" element={<NetworkStats />} />
               </Routes>
             </Layout>
           } />

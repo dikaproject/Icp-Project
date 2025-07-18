@@ -98,14 +98,26 @@ const ClaimQRIS = () => {
       const result = await backend.claimQRISPayment(topupId)
       
       if (result.Ok) {
-        // Convert BigInt values to strings
         const convertedData = convertBigIntToString(result.Ok)
         setTopupData(convertedData)
         setSuccess('Payment successfully processed!')
         
+        // Refresh balance after successful claim
+        if (backend) {
+          try {
+            await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second
+            const userBalance = await backend.getUserBalance()
+            console.log('Balance refreshed after topup:', userBalance)
+          } catch (err) {
+            console.error('Error refreshing balance after topup:', err)
+          }
+        }
+        
         // Redirect setelah 3 detik
         setTimeout(() => {
-          navigate('/dashboard')
+          navigate('/dashboard', { 
+            state: { message: 'Top-up completed successfully!' }
+          })
         }, 3000)
       } else {
         setError(result.Err || 'Failed to process payment')
