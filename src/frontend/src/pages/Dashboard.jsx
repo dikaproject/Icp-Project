@@ -53,16 +53,24 @@ const Dashboard = () => {
     }
   }, [isAuthenticated, user])
 
+  const refreshBalance = async () => {
+    try {
+      if (backend) {
+        const userBalance = await backend.getUserBalance()
+        setBalance(userBalance && userBalance.length > 0 ? userBalance[0] : null)
+      }
+    } catch (err) {
+      console.error('Error refreshing balance:', err)
+    }
+  }
+
   const fetchDashboardData = async () => {
     try {
       setLoading(true)
       setError(null)
       
       // Fetch user balance
-      if (backend) {
-        const userBalance = await backend.getUserBalance()
-        setBalance(userBalance[0] || null)
-      }
+      await refreshBalance()
       
       // Fetch user stats
       const userStatsData = await getUserStats()

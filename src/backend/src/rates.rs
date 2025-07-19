@@ -3,23 +3,24 @@ use ic_cdk::api::management_canister::http_request::{
     http_request, CanisterHttpRequestArgument, HttpHeader, HttpMethod, HttpResponse, TransformArgs,
 };
 use serde_json;
-use std::collections::HashMap;
 
 // Rate limiting configuration
 const MAX_RETRIES: u32 = 3;
 const RETRY_DELAY_SECONDS: u64 = 2;
 const RATE_CACHE_DURATION_SECONDS: u64 = 300; // 5 minutes
 
-// Enhanced exchange rate fetching with rate limiting
+// Enhanced exchange rate fetching with cache-only fallback
 pub async fn fetch_exchange_rate_with_retry(currency: String) -> Result<ExchangeRate, String> {
+    fetch_exchange_rate_with_retry_internal(currency, None).await
+}
+
+// Internal function that accepts cached rate
+pub async fn fetch_exchange_rate_with_retry_internal(currency: String, cached_rate: Option<ExchangeRate>) -> Result<ExchangeRate, String> {
     let currency_upper = currency.to_uppercase();
     
     if !is_supported_currency(&currency_upper) {
         return Err(format!("Unsupported currency: {}", currency_upper));
     }
-
-    // Try to get cached rate first
-    let cached_rate = get_cached_rate_if_valid(&currency_upper);
     
     for attempt in 1..=MAX_RETRIES {
         ic_cdk::println!("🔄 Attempt {} to fetch {} rate", attempt, currency_upper);
@@ -32,13 +33,17 @@ pub async fn fetch_exchange_rate_with_retry(currency: String) -> Result<Exchange
             Err(e) => {
                 ic_cdk::println!("❌ Attempt {} failed: {}", attempt, e);
                 
-                // If rate limiting error (429), use cached rate if available
+                // If rate limiting error (429), use cached rate if available and recent
                 if e.contains("429") {
                     ic_cdk::println!("⚠️ Rate limited, checking cached rate...");
                     
                     if let Some(cached) = cached_rate.as_ref() {
-                        ic_cdk::println!("✅ Using cached {} rate", currency_upper);
-                        return Ok(cached.clone());
+                        if is_cache_very_recent(cached) {
+                            ic_cdk::println!("✅ Using recent cached {} rate", currency_upper);
+                            return Ok(cached.clone());
+                        } else {
+                            ic_cdk::println!("⚠️ Cached rate is older than 5 minutes, continuing retries...");
+                        }
                     }
                 }
                 
@@ -61,10 +66,20 @@ pub async fn fetch_exchange_rate_with_retry(currency: String) -> Result<Exchange
         }
     }
     
-    // If all retries failed, try cached rate as last resort
+    // If all retries failed, use cached rate with disclaimer (even if older than 5 minutes)
     if let Some(cached) = cached_rate {
-        ic_cdk::println!("⚠️ All attempts failed, using cached {} rate", currency_upper);
-        return Ok(cached);
+        let age_minutes = get_cache_age_minutes(&cached);
+        ic_cdk::println!("⚠️ All attempts failed, using cached {} rate ({} min old)", currency_upper, age_minutes);
+        
+        // Modify the cached rate to include disclaimer in source
+        let mut rate_with_disclaimer = cached.clone();
+        rate_with_disclaimer.source = if age_minutes <= 5 {
+            format!("coingecko_cached_{}min", age_minutes)
+        } else {
+            format!("coingecko_stale_{}min", age_minutes)
+        };
+        
+        return Ok(rate_with_disclaimer);
     }
     
     Err(format!("Failed to fetch {} rate after {} attempts and no cached rate available", currency_upper, MAX_RETRIES))
@@ -74,6 +89,7 @@ pub async fn fetch_exchange_rate_with_retry(currency: String) -> Result<Exchange
 fn get_cached_rate_if_valid(_currency: &str) -> Option<ExchangeRate> {
     // This would be implemented with access to the cache
     // For now, return None as we'll implement this in lib.rs
+    // The cache access will be handled in the calling function in lib.rs
     None
 }
 
@@ -166,6 +182,22 @@ pub async fn fetch_live_exchange_rate(currency: String) -> Result<ExchangeRate, 
     }
 }
 
+// Check if cached rate is very recent (within 5 minutes for immediate use)
+fn is_cache_very_recent(exchange_rate: &ExchangeRate) -> bool {
+    let current_time = ic_cdk::api::time();
+    let rate_age = current_time.saturating_sub(exchange_rate.timestamp);
+    let max_recent_age = RATE_CACHE_DURATION_SECONDS * 1_000_000_000; // 5 minutes in nanoseconds
+    
+    rate_age < max_recent_age
+}
+
+// Get cache age in minutes for disclaimer
+pub fn get_cache_age_minutes(exchange_rate: &ExchangeRate) -> u64 {
+    let current_time = ic_cdk::api::time();
+    let rate_age = current_time.saturating_sub(exchange_rate.timestamp);
+    rate_age / (60 * 1_000_000_000) // Convert to minutes
+}
+
 // Enhanced cache validation
 pub fn is_rate_cache_valid(exchange_rate: &ExchangeRate) -> bool {
     let current_time = ic_cdk::api::time();
@@ -173,41 +205,6 @@ pub fn is_rate_cache_valid(exchange_rate: &ExchangeRate) -> bool {
     let max_age = RATE_CACHE_DURATION_SECONDS * 1_000_000_000; // Convert to nanoseconds
     
     rate_age < max_age
-}
-
-// Fallback rates for critical currencies (in case API is completely down)
-pub fn get_fallback_rates() -> HashMap<String, f64> {
-    let mut fallback = HashMap::new();
-    
-    // These would be updated periodically or from another source
-    fallback.insert("USD".to_string(), 5.50);
-    fallback.insert("EUR".to_string(), 4.70);
-    fallback.insert("IDR".to_string(), 89000.0);
-    fallback.insert("JPY".to_string(), 800.0);
-    fallback.insert("GBP".to_string(), 4.20);
-    fallback.insert("SGD".to_string(), 7.50);
-    fallback.insert("MYR".to_string(), 25.0);
-    fallback.insert("PHP".to_string(), 300.0);
-    fallback.insert("THB".to_string(), 200.0);
-    fallback.insert("VND".to_string(), 135000.0);
-    
-    fallback
-}
-
-// Get fallback rate if available
-pub fn get_fallback_rate(currency: &str) -> Option<ExchangeRate> {
-    let fallback_rates = get_fallback_rates();
-    
-    if let Some(rate) = fallback_rates.get(currency) {
-        Some(ExchangeRate {
-            currency: currency.to_string(),
-            rate: *rate,
-            timestamp: ic_cdk::api::time(),
-            source: "fallback".to_string(),
-        })
-    } else {
-        None
-    }
 }
 
 // Rest of the existing functions remain the same...
@@ -295,17 +292,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_fallback_rates() {
-        let fallback_rates = get_fallback_rates();
-        assert!(fallback_rates.contains_key("USD"));
-        assert!(fallback_rates.contains_key("EUR"));
-        
-        let usd_rate = get_fallback_rate("USD").unwrap();
-        assert_eq!(usd_rate.source, "fallback");
-        assert!(usd_rate.rate > 0.0);
-    }
-
-    #[test]
     fn test_currency_support() {
         assert!(is_supported_currency("USD"));
         assert!(is_supported_currency("usd"));
@@ -325,5 +311,18 @@ mod tests {
         assert_eq!(format_currency_amount(100.5, "USD"), "100.50");
         assert_eq!(format_currency_amount(100.5, "JPY"), "101");
         assert_eq!(format_currency_amount(100000.0, "IDR"), "100000");
+    }
+
+    #[test]
+    fn test_cache_age_calculation() {
+        let exchange_rate = ExchangeRate {
+            currency: "USD".to_string(),
+            rate: 5.0,
+            timestamp: ic_cdk::api::time() - (10 * 60 * 1_000_000_000), // 10 minutes ago
+            source: "coingecko".to_string(),
+        };
+        
+        let age = get_cache_age_minutes(&exchange_rate);
+        assert_eq!(age, 10);
     }
 }

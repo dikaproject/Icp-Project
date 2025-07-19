@@ -18,6 +18,74 @@ export const idlFactory = ({ IDL }) => {
     'last_updated': IDL.Nat64,
   })
 
+  // Add new Balance Change Log types
+  const BalanceChangeType = IDL.Variant({
+    'TopupCompleted': IDL.Null,
+    'PaymentSent': IDL.Null,
+    'PaymentReceived': IDL.Null,
+    'FeeDeducted': IDL.Null,
+    'Refund': IDL.Null,
+    'Adjustment': IDL.Null,
+  })
+
+  const BalanceChangeLog = IDL.Record({
+    'id': IDL.Text,
+    'user_id': IDL.Principal,
+    'change_type': BalanceChangeType,
+    'amount': IDL.Nat64,
+    'previous_balance': IDL.Nat64,
+    'new_balance': IDL.Nat64,
+    'timestamp': IDL.Nat64,
+    'reference_id': IDL.Text,
+    'description': IDL.Text,
+  })
+
+  // Add QR Usage Log types
+  const QRUsageType = IDL.Variant({
+    'PaymentCompleted': IDL.Null,
+    'PaymentFailed': IDL.Null,
+    'PaymentExpired': IDL.Null,
+  })
+
+  const QRUsageLog = IDL.Record({
+    'id': IDL.Text,
+    'qr_id': IDL.Text,
+    'user_id': IDL.Principal,
+    'used_by': IDL.Principal,
+    'transaction_id': IDL.Text,
+    'timestamp': IDL.Nat64,
+    'usage_type': QRUsageType,
+  })
+
+  // Add User Preferences types
+  const NotificationSettings = IDL.Record({
+    'email_notifications': IDL.Bool,
+    'push_notifications': IDL.Bool,
+    'transaction_alerts': IDL.Bool,
+    'marketing_emails': IDL.Bool,
+  })
+
+  const UserPreferences = IDL.Record({
+    'user_id': IDL.Principal,
+    'preferred_currency': IDL.Text,
+    'notification_settings': NotificationSettings,
+    'ui_theme': IDL.Text,
+    'language': IDL.Text,
+    'timezone': IDL.Text,
+    'updated_at': IDL.Nat64,
+  })
+
+  // Add Session types
+  const UserSession = IDL.Record({
+    'user_id': IDL.Principal,
+    'session_id': IDL.Text,
+    'created_at': IDL.Nat64,
+    'last_activity': IDL.Nat64,
+    'ip_address': IDL.Text,
+    'user_agent': IDL.Text,
+    'is_active': IDL.Bool,
+  })
+
   const TopUpMethod = IDL.Variant({
     'QRIS': IDL.Null,
     'CreditCard': IDL.Null,
@@ -169,8 +237,40 @@ export const idlFactory = ({ IDL }) => {
     'fee': IDL.Nat64,
   })
 
+  const CurrencyStatInfo = IDL.Record({
+  'currency': IDL.Text,
+  'usage_count': IDL.Nat64,
+  'total_fiat_volume': IDL.Float64,
+  'total_icp_volume': IDL.Nat64,
+})
+
+const CurrencyCountryInfo = IDL.Record({
+  'currency': IDL.Text,
+  'transaction_count': IDL.Nat64,
+})
+
+const NetworkStats = IDL.Record({
+  'active_countries': IDL.Nat64,
+  'active_currencies': IDL.Nat64,
+  'total_icp_volume': IDL.Nat64,
+  'transactions_24h': IDL.Nat64,
+  'transactions_7d': IDL.Nat64,
+  'total_transactions': IDL.Nat64,
+  'completed_transactions': IDL.Nat64,
+  'pending_transactions': IDL.Nat64,
+  'failed_transactions': IDL.Nat64,
+  'total_users': IDL.Nat64,
+  'currency_stats': IDL.Vec(CurrencyStatInfo),
+  'currency_countries': IDL.Vec(CurrencyCountryInfo),
+})
+
+
+
   // Define all Result types
   const Result_User = IDL.Variant({ 'Ok': User, 'Err': IDL.Text })
+  const Result_UserPreferences = IDL.Variant({ 'Ok': UserPreferences, 'Err': IDL.Text })
+  const Result_UserSession = IDL.Variant({ 'Ok': UserSession, 'Err': IDL.Text })
+  const Result_String = IDL.Variant({ 'Ok': IDL.Text, 'Err': IDL.Text })
   const Result_ExchangeRate = IDL.Variant({ 'Ok': ExchangeRate, 'Err': IDL.Text })
   const Result_QRCode = IDL.Variant({ 'Ok': QRCode, 'Err': IDL.Text })
   const Result_QRDisplayInfo = IDL.Variant({ 'Ok': QRDisplayInfo, 'Err': IDL.Text })
@@ -203,6 +303,27 @@ export const idlFactory = ({ IDL }) => {
     'claim_qris_payment': IDL.Func([IDL.Text], [Result_TopUpTransaction], []),
     'get_topup_transaction': IDL.Func([IDL.Text], [IDL.Opt(TopUpTransaction)], ['query']),
     'get_user_topup_history': IDL.Func([], [IDL.Vec(TopUpTransaction)], ['query']),
+
+    'get_network_stats': IDL.Func([], [NetworkStats], ['query']),
+    'get_all_transactions': IDL.Func([], [IDL.Vec(Transaction)], ['query']),
+
+    // Add new balance history methods
+    'get_user_balance_history': IDL.Func([], [IDL.Vec(BalanceChangeLog)], ['query']),
+    'get_all_balance_changes': IDL.Func([], [IDL.Vec(BalanceChangeLog)], ['query']),
+    
+    // Add QR usage history methods
+    'get_qr_usage_history': IDL.Func([IDL.Text], [IDL.Vec(QRUsageLog)], ['query']),
+    'get_all_qr_usage_logs': IDL.Func([], [IDL.Vec(QRUsageLog)], ['query']),
+    
+    // Add user preferences methods
+    'update_user_preferences': IDL.Func([IDL.Opt(IDL.Text), IDL.Opt(NotificationSettings), IDL.Opt(IDL.Text), IDL.Opt(IDL.Text), IDL.Opt(IDL.Text)], [Result_UserPreferences], []),
+    'get_user_preferences': IDL.Func([], [IDL.Opt(UserPreferences)], ['query']),
+    
+    // Add session methods
+    'create_user_session': IDL.Func([IDL.Text, IDL.Text], [Result_UserSession], []),
+    'update_session_activity': IDL.Func([IDL.Text], [Result_UserSession], []),
+    'end_user_session': IDL.Func([IDL.Text], [Result_String], []),
+    'get_active_sessions': IDL.Func([], [IDL.Vec(UserSession)], ['query']),
   })
 }
 
@@ -403,6 +524,15 @@ export class PaymentBackendService {
     }
   }
 
+  async getNetworkStats() {
+  try {
+    return await this.actor.get_network_stats()
+  } catch (error) {
+    console.error('Get network stats error:', error)
+    return null
+  }
+}
+
   async claimQRISPayment(topupId) {
     try {
       return await this.actor.claim_qris_payment(topupId)
@@ -418,6 +548,126 @@ export class PaymentBackendService {
     } catch (error) {
       console.error('Get topup transaction error:', error)
       return null
+    }
+  }
+
+  async getAllTransactions() {
+  try {
+    const result = await this.actor.get_all_transactions()
+    return result
+  } catch (error) {
+    console.error('Get all transactions error:', error)
+    return []
+  }
+}
+
+  // Add new balance history methods
+  async getUserBalanceHistory() {
+    try {
+      const result = await this.actor.get_user_balance_history()
+      return result || []
+    } catch (error) {
+      console.error('Get balance history error:', error)
+      return []
+    }
+  }
+
+  async getAllBalanceChanges() {
+    try {
+      const result = await this.actor.get_all_balance_changes()
+      return result || []
+    } catch (error) {
+      console.error('Get all balance changes error:', error)
+      return []
+    }
+  }
+
+  // Add QR usage history methods
+  async getQRUsageHistory(qrId) {
+    try {
+      const result = await this.actor.get_qr_usage_history(qrId)
+      return result || []
+    } catch (error) {
+      console.error('Get QR usage history error:', error)
+      return []
+    }
+  }
+
+  async getAllQRUsageLogs() {
+    try {
+      const result = await this.actor.get_all_qr_usage_logs()
+      return result || []
+    } catch (error) {
+      console.error('Get all QR usage logs error:', error)
+      return []
+    }
+  }
+
+  // Add user preferences methods
+  async updateUserPreferences(preferences) {
+    try {
+      const result = await this.actor.update_user_preferences(
+        preferences.preferred_currency ? [preferences.preferred_currency] : [],
+        preferences.notification_settings ? [preferences.notification_settings] : [],
+        preferences.ui_theme ? [preferences.ui_theme] : [],
+        preferences.language ? [preferences.language] : [],
+        preferences.timezone ? [preferences.timezone] : []
+      )
+      return result
+    } catch (error) {
+      console.error('Update user preferences error:', error)
+      return { Err: error.message }
+    }
+  }
+
+  async getUserPreferences() {
+    try {
+      const result = await this.actor.get_user_preferences()
+      return result.length > 0 ? result[0] : null
+    } catch (error) {
+      console.error('Get user preferences error:', error)
+      return null
+    }
+  }
+
+  // Add session methods
+  async createUserSession(ipAddress, userAgent) {
+    try {
+      const result = await this.actor.create_user_session(ipAddress, userAgent)
+      return result
+    } catch (error) {
+      console.error('Create user session error:', error)
+      return { Err: error.message }
+    }
+  }
+
+  async updateSessionActivity(sessionId) {
+    try {
+      const result = await this.actor.update_session_activity(sessionId)
+      return result
+    } catch (error) {
+      console.error('Update session activity error:', error)
+      return { Err: error.message }
+    }
+  }
+
+  async endUserSession(sessionId) {
+    try {
+      const result = await this.actor.end_user_session(sessionId)
+      return result
+    } catch (error) {
+      console.error('End user session error:', error)
+      return { Err: error.message }
+    }
+  }
+
+  async getActiveSessions() {
+    try {
+      const result = await this.actor.get_active_sessions()
+      return result || []
+    } catch (error) {
+      console.error('Get active sessions error:', error)
+      return []
     }
   }
 }

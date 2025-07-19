@@ -9,6 +9,7 @@ import {
   CheckCircle,
   DollarSign
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 const PaymentScanner = () => {
   const { backend, isAuthenticated } = useICP()
@@ -19,6 +20,7 @@ const PaymentScanner = () => {
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [paymentSuccess, setPaymentSuccess] = useState(false)
   const [showWebcam, setShowWebcam] = useState(false)
+  const navigate = useNavigate()
 
   const handleValidateQR = async (e) => {
     e.preventDefault()
@@ -50,56 +52,82 @@ const PaymentScanner = () => {
     }
   }
 
+  // Update handlePayment untuk refresh balance yang lebih reliable
   const handlePayment = async () => {
-  if (!backend || !qrId.trim()) return
+    if (!backend || !qrId.trim()) return
 
-  setPaymentLoading(true)
-  setError('')
+    setPaymentLoading(true)
+    setError('')
 
-  try {
-    console.log('Processing payment for QR ID:', qrId.trim())
-    const result = await backend.processPayment(qrId.trim())
-    console.log('Payment result:', result)
+    try {
+      console.log('Processing payment for QR ID:', qrId.trim())
+      const result = await backend.processPayment(qrId.trim())
+      console.log('Payment result:', result)
 
-    if (result.Err) {
-      setError(result.Err)
-      return
+      if (result.Err) {
+        setError(result.Err)
+        return
+      }
+
+      if (result.Ok) {
+        console.log('Payment successful! Transaction:', result.Ok)
+        setPaymentSuccess(true)
+        setQrInfo(null)
+        setQrId('')
+
+        // Refresh balance setelah payment sukses dengan multiple attempts
+        if (backend) {
+          try {
+            // Wait 2 seconds untuk memastikan balance logs sudah diupdate
+            await new Promise(resolve => setTimeout(resolve, 2000))
+            
+            // Refresh balance menggunakan balance logs
+            const userBalance = await backend.getUserBalance()
+            console.log('Balance refreshed after payment:', userBalance)
+            
+            // Trigger custom event untuk refresh dashboard
+            window.dispatchEvent(new CustomEvent('balance-updated', { 
+              detail: { userBalance } 
+            }))
+            
+            // Refresh user stats juga
+            const userStats = await backend.getUserStats()
+            console.log('Stats refreshed after payment:', userStats)
+            
+          } catch (err) {
+            console.error('Error refreshing balance after payment:', err)
+          }
+        }
+
+        // Redirect dengan delay lebih lama
+        setTimeout(() => {
+          navigate('/dashboard', { 
+            state: { message: 'Payment completed successfully!' }
+          })
+        }, 3000)
+      } else {
+        setError('Unexpected response format')
+      }
+    } catch (error) {
+      console.error('Payment processing error:', error)
+      console.error('Error details:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      })
+
+      // Handle specific errors
+      if (error.message.includes('type mismatch')) {
+        setError('Payment processed but response format error. Please refresh the page.')
+      } else if (error.message.includes('principal')) {
+        setError('Authentication error. Please reconnect your wallet.')
+      } else {
+        setError('Payment may have been processed. Please check your transaction history.')
+      }
+    } finally {
+      setPaymentLoading(false)
     }
-
-    if (result.Ok) {
-      console.log('Payment successful! Transaction:', result.Ok)
-      setPaymentSuccess(true)
-      setQrInfo(null)
-      setQrId('')
-      
-      // Optional: Refresh user stats or balance
-      setTimeout(() => {
-        window.location.reload() // Simple refresh to update balance
-      }, 2000)
-    } else {
-      setError('Unexpected response format')
-    }
-
-  } catch (error) {
-    console.error('Payment processing error:', error)
-    console.error('Error details:', {
-      message: error.message,
-      name: error.name,
-      stack: error.stack
-    })
-    
-    // Handle specific errors
-    if (error.message.includes('type mismatch')) {
-      setError('Payment processed but response format error. Please refresh the page.')
-    } else if (error.message.includes('principal')) {
-      setError('Authentication error. Please reconnect your wallet.')
-    } else {
-      setError('Payment may have been processed. Please check your transaction history.')
-    }
-  } finally {
-    setPaymentLoading(false)
   }
-}
 
   const formatICP = (amount) => {
     return (Number(amount) / 100_000_000).toFixed(6)

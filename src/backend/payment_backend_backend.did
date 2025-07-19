@@ -165,6 +165,98 @@ type CardDataInput = record {
   cardholder_name : text;
 };
 
+type NetworkStats = record {
+  active_countries : nat64;
+  active_currencies : nat64;
+  total_icp_volume : nat64;
+  transactions_24h : nat64;
+  transactions_7d : nat64;
+  total_transactions : nat64;
+  completed_transactions : nat64;
+  pending_transactions : nat64;
+  failed_transactions : nat64;
+  total_users : nat64;
+  currency_stats : vec CurrencyStatInfo;
+  currency_countries : vec CurrencyCountryInfo;
+};
+
+type CurrencyStatInfo = record {
+  currency : text;
+  usage_count : nat64;
+  total_fiat_volume : float64;
+  total_icp_volume : nat64;
+};
+
+type CurrencyCountryInfo = record {
+  currency : text;
+  transaction_count : nat64;
+};
+
+// Add new types
+type BalanceChangeLog = record {
+  id : text;
+  user_id : principal;
+  change_type : BalanceChangeType;
+  amount : nat64;
+  previous_balance : nat64;
+  new_balance : nat64;
+  timestamp : nat64;
+  reference_id : text;
+  description : text;
+};
+
+type BalanceChangeType = variant {
+  TopupCompleted;
+  PaymentSent;
+  PaymentReceived;
+  FeeDeducted;
+  Refund;
+  Adjustment;
+};
+
+type QRUsageLog = record {
+  id : text;
+  qr_id : text;
+  user_id : principal;
+  used_by : principal;
+  transaction_id : text;
+  timestamp : nat64;
+  usage_type : QRUsageType;
+};
+
+type QRUsageType = variant {
+  PaymentCompleted;
+  PaymentFailed;
+  PaymentExpired;
+};
+
+type UserPreferences = record {
+  user_id : principal;
+  preferred_currency : text;
+  notification_settings : NotificationSettings;
+  ui_theme : text;
+  language : text;
+  timezone : text;
+  updated_at : nat64;
+};
+
+type NotificationSettings = record {
+  email_notifications : bool;
+  push_notifications : bool;
+  transaction_alerts : bool;
+  marketing_emails : bool;
+};
+
+type UserSession = record {
+  user_id : principal;
+  session_id : text;
+  created_at : nat64;
+  last_activity : nat64;
+  ip_address : text;
+  user_agent : text;
+  is_active : bool;
+};
+
 type Result = variant { Ok : User; Err : text };
 type Result_1 = variant { Ok : ExchangeRate; Err : text };
 type Result_2 = variant { Ok : QRCode; Err : text };
@@ -172,6 +264,8 @@ type Result_3 = variant { Ok : Transaction; Err : text };
 type Result_4 = variant { Ok : QRDisplayInfo; Err : text };
 type Result_5 = variant { Ok : TopUpTransaction; Err : text };
 type Result_6 = variant { Ok : UserBalance; Err : text };
+type Result_7 = variant { Ok : UserPreferences; Err : text };
+type Result_8 = variant { Ok : UserSession; Err : text };
 
 service : {
   // User management
@@ -195,15 +289,14 @@ service : {
   
   // Transaction management
   process_payment : (text, opt text) -> (Result_3);
-  update_transaction_status_endpoint : (text, TransactionStatus, opt text) -> (Result_3);
   get_transaction : (text) -> (opt Transaction) query;
   get_user_transactions : () -> (vec Transaction) query;
   get_user_transaction_summaries : () -> (vec TransactionSummary) query;
   get_recent_transactions_public : () -> (vec Transaction) query;
+  get_network_stats : () -> (NetworkStats) query;
+  get_all_transactions : () -> (vec Transaction) query;
   
   // System management
-  cleanup_expired_qr_codes : () -> (nat64);
-  cleanup_expired_transactions : () -> (nat64);
   get_system_stats : () -> (SystemStats) query;
 
   // Balance & Top-up Management
@@ -213,6 +306,31 @@ service : {
   claim_qris_payment : (text) -> (Result_5);
   get_topup_transaction : (text) -> (opt TopUpTransaction) query;
   get_user_topup_history : () -> (vec TopUpTransaction) query;
+  
+  // User preferences (MUTABLE)
+  update_user_preferences : (opt text, opt NotificationSettings, opt text, opt text, opt text) -> (Result_7);
+  get_user_preferences : () -> (opt UserPreferences) query;
+  
+  // Balance history (IMMUTABLE)
+  get_user_balance_history : () -> (vec BalanceChangeLog) query;
+  get_all_balance_changes : () -> (vec BalanceChangeLog) query;
+  
+  // QR usage history (IMMUTABLE)
+  get_qr_usage_history : (text) -> (vec QRUsageLog) query;
+  get_all_qr_usage_logs : () -> (vec QRUsageLog) query;
+  
+  // Session management (MUTABLE)
+  create_user_session : (text, text) -> (Result_8);
+  update_session_activity : (text) -> (Result_8);
+  end_user_session : (text) -> (Result);
+  get_active_sessions : () -> (vec UserSession) query;
+  
+  // Remove cleanup functions that violate immutability
+  // cleanup_expired_transactions : () -> (nat64);
+  // cleanup_expired_qr_codes : () -> (nat64);
+  
+  // Keep only cache cleanup (mutable data)
+  cleanup_expired_rates : () -> (nat64);
   
   // HTTP transform
   transform_response : (record {

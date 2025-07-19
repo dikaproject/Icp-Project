@@ -8,13 +8,14 @@ use sha2::{Digest, Sha256};
 pub fn generate_topup_id() -> String {
     let timestamp = time();
     let caller = ic_cdk::caller();
-    let combined = format!("topup-{}-{}", timestamp, caller.to_text());
+    let random_part = timestamp % 1000000;
+    let combined = format!("topup-{}-{}-{}", timestamp, caller.to_text(), random_part);
     
     let mut hasher = Sha256::new();
     hasher.update(combined.as_bytes());
     let hash = hasher.finalize();
     
-    format!("TU{:X}", hash)[..16].to_string()
+    format!("TU_{:X}", hash)[..32].to_string()
 }
 
 // Create QRIS top-up transaction
@@ -234,27 +235,15 @@ pub async fn create_web3_topup(
     Ok(topup_transaction)
 }
 
-// Process top-up payment
-pub fn process_topup_payment(
-    topup: &mut TopUpTransaction,
-    success: bool,
-) -> Result<(), String> {
-    let current_time = time();
-    
-    if success {
-        topup.status = TopUpStatus::Completed;
-        topup.processed_at = Some(current_time);
-    } else {
-        topup.status = TopUpStatus::Failed;
-        topup.processed_at = Some(current_time);
+pub fn create_user_with_updated_balance(user: &User, amount: u64) -> User {
+    User {
+        id: user.id,
+        wallet_address: user.wallet_address.clone(),
+        created_at: user.created_at,
+        username: user.username.clone(),
+        email: user.email.clone(),
+        balance: user.balance.saturating_add(amount),
     }
-    
-    Ok(())
-}
-
-// Update user balance
-pub fn update_user_balance(user: &mut User, amount: u64) {
-    user.balance += amount;
 }
 
 // Check if top-up is expired

@@ -8,13 +8,14 @@ use sha2::{Digest, Sha256};
 
 pub fn generate_transaction_id(from: Principal, to: Principal, amount: u64) -> String {
     let timestamp = time();
-    let data = format!("{}-{}-{}-{}", from.to_text(), to.to_text(), amount, timestamp);
+    let random_part = timestamp % 1000000; // Add randomness
+    let data = format!("{}-{}-{}-{}-{}", from.to_text(), to.to_text(), amount, timestamp, random_part);
     
     let mut hasher = Sha256::new();
     hasher.update(data.as_bytes());
     let hash = hasher.finalize();
     
-    format!("tx_{:x}", hash)[..24].to_string().to_uppercase()
+    format!("TX_{:X}", hash)[..32].to_string()
 }
 
 pub fn create_transaction(
@@ -54,17 +55,6 @@ pub fn calculate_transaction_fee(amount: u64) -> u64 {
     let minimum_fee = 10_000; // 0.0001 ICP in e8s
     
     std::cmp::max(percentage_fee, minimum_fee)
-}
-
-pub fn update_transaction_status(
-    transaction: &mut Transaction,
-    new_status: TransactionStatus,
-    hash: Option<String>,
-) {
-    transaction.status = new_status;
-    if let Some(h) = hash {
-        transaction.transaction_hash = Some(h);
-    }
 }
 
 // Transaction validation
@@ -206,24 +196,23 @@ pub fn create_transaction_summary(
     }
 }
 
-// Bulk transaction operations
-pub fn mark_expired_transactions(transactions: &mut [Transaction]) -> usize {
+pub fn find_expired_transactions(transactions: &[Transaction]) -> Vec<String> {
     let current_time = time();
-    let mut count = 0;
+    let mut expired_ids = Vec::new();
     
     for tx in transactions {
         if matches!(tx.status, TransactionStatus::Pending) {
             // Transactions expire after 1 hour
             let expiry_time = tx.timestamp + (60 * 60 * 1_000_000_000);
             if current_time > expiry_time {
-                tx.status = TransactionStatus::Expired;
-                count += 1;
+                expired_ids.push(tx.id.clone());
             }
         }
     }
     
-    count
+    expired_ids
 }
+
 
 #[cfg(test)]
 mod tests {
