@@ -15,6 +15,7 @@
     "@dfinity/identity": "^0.19.3",
     "@dfinity/principal": "^0.19.2",
     "clsx": "^2.0.0",
+    "framer-motion": "^10.16.0",
     "jsqr": "^1.4.0",
     "lucide-react": "^0.263.1",
     "qrcode": "^1.5.4",
