@@ -169,6 +169,73 @@ fn is_qr_already_used(qr_id: &str) -> bool {
 
 #[update]
 #[candid_method(update)]
+async fn save_wallet_identity(encrypted_seed: String, wallet_name: String) -> Result<String, String> {
+    let caller = ic_cdk::caller();
+    if caller == Principal::anonymous() {
+        return Err("Anonymous users cannot save wallet identity".to_string());
+    }
+
+    // Save to user preferences
+    USER_PREFERENCES.with(|prefs| {
+        let mut prefs_map = prefs.borrow_mut();
+        let current_prefs = prefs_map.get(&caller).unwrap_or(UserPreferences {
+            user_id: caller,
+            preferred_currency: "USD".to_string(),
+            notification_settings: NotificationSettings {
+                email_notifications: true,
+                push_notifications: true,
+                transaction_alerts: true,
+                marketing_emails: false,
+            },
+            ui_theme: "light".to_string(),
+            language: "en".to_string(),
+            timezone: "UTC".to_string(),
+            updated_at: ic_cdk::api::time(),
+        });
+
+        // Store wallet info in description field (extend struct later)
+        let wallet_info = format!("wallet_seed:{};name:{}", encrypted_seed, wallet_name);
+        
+        let updated_prefs = UserPreferences {
+            user_id: caller,
+            preferred_currency: current_prefs.preferred_currency,
+            notification_settings: current_prefs.notification_settings,
+            ui_theme: current_prefs.ui_theme,
+            language: current_prefs.language,
+            timezone: wallet_info, // Temporary storage in timezone field
+            updated_at: ic_cdk::api::time(),
+        };
+
+        prefs_map.insert(caller, updated_prefs);
+        Ok("Wallet identity saved successfully".to_string())
+    })
+}
+
+#[query]
+#[candid_method(query)]
+fn get_saved_wallet_identity() -> Option<(String, String)> {
+    let caller = ic_cdk::caller();
+    
+    USER_PREFERENCES.with(|prefs| {
+        prefs.borrow().get(&caller).and_then(|prefs| {
+            if prefs.timezone.starts_with("wallet_seed:") {
+                let parts: Vec<&str> = prefs.timezone.split(';').collect();
+                if parts.len() >= 2 {
+                    let seed = parts[0].strip_prefix("wallet_seed:").unwrap_or("");
+                    let name = parts[1].strip_prefix("name:").unwrap_or("");
+                    Some((seed.to_string(), name.to_string()))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+    })
+}
+
+#[update]
+#[candid_method(update)]
 async fn register_user(wallet_address: String, username: Option<String>, email: Option<String>) -> Result<User, String> {
     let caller = caller();
     if caller == Principal::anonymous() {

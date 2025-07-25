@@ -14,7 +14,18 @@ export default defineConfig({
   define: {
     global: 'globalThis',
   },
+  resolve: {
+    alias: {
+      buffer: 'buffer',
+    },
+  },
   optimizeDeps: {
-    include: ['@dfinity/agent', '@dfinity/candid', '@dfinity/principal'],
+    include: [
+      '@dfinity/agent', 
+      '@dfinity/candid', 
+      '@dfinity/principal',
+      'buffer',
+      'bip39'
+    ],
   },
 })
