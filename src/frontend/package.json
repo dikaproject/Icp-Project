@@ -14,8 +14,12 @@
     "@dfinity/candid": "^0.19.2",
     "@dfinity/identity": "^0.19.3",
     "@dfinity/principal": "^0.19.2",
+<<<<<<< HEAD
+    "@heroicons/react": "^2.2.0",
+=======
     "bip39": "^3.1.0",
     "buffer": "^6.0.3",
+>>>>>>> 931458d947b6a601bea2a4fc5668d783a37183df
     "clsx": "^2.0.0",
     "framer-motion": "^10.16.0",
     "jsqr": "^1.4.0",
