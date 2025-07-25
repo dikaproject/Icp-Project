@@ -285,6 +285,9 @@ const NetworkStats = IDL.Record({
     'get_system_stats': IDL.Func([], [SystemStats], ['query']),
     'get_user_transaction_summaries': IDL.Func([], [IDL.Vec(TransactionSummary)], ['query']),
     'get_supported_currencies_list': IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
+    'register_user_by_email': IDL.Func([IDL.Text, IDL.Opt(IDL.Text), IDL.Text], [Result_User], []),
+    'check_email_availability': IDL.Func([IDL.Text], [IDL.Bool], ['query']),
+    'get_user_by_email': IDL.Func([IDL.Text], [IDL.Opt(User)], ['query']),
     
     // Exchange rates
     'fetch_exchange_rate': IDL.Func([IDL.Text], [Result_ExchangeRate], []),
@@ -371,6 +374,33 @@ export class PaymentBackendService {
       }
 
       throw new Error(`Registration failed: ${error.message}`)
+    }
+  }
+
+  async registerUserByEmail(email, username, walletAddress) {
+    try {
+      return await this.actor.register_user_by_email(email, username ? [username] : [], walletAddress)
+    } catch (error) {
+      console.error('Register user by email error:', error)
+      throw error
+    }
+  }
+
+  async checkEmailAvailability(email) {
+    try {
+      return await this.actor.check_email_availability(email)
+    } catch (error) {
+      console.error('Check email availability error:', error)
+      return false
+    }
+  }
+
+  async getUserByEmail(email) {
+    try {
+      return await this.actor.get_user_by_email(email)
+    } catch (error) {
+      console.error('Get user by email error:', error)
+      return null
     }
   }
 

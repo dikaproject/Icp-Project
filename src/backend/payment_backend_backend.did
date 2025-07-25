@@ -274,6 +274,9 @@ service : {
   get_user : () -> (opt User) query;
   get_user_by_id : (principal) -> (opt User) query;
   get_user_stats : () -> (opt UserStats) query;
+  register_user_by_email : (text, opt text, text) -> (Result);
+  check_email_availability : (text) -> (bool) query;
+  get_user_by_email : (text) -> (opt User) query;
   
   // Exchange rates
   fetch_exchange_rate : (text) -> (Result_1);

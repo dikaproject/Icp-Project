@@ -113,32 +113,36 @@ export const ICPProvider = ({ children }) => {
     }
   }
 
-  const authenticateWithIdentity = async (identity) => {
-    const principal = identity.getPrincipal()
-    
-    setIdentity(identity)
-    setPrincipal(principal)
-    setIsAuthenticated(true)
-    
-    const backendService = await createActorConnection(identity)
-    
-    // Try to load user data
-    await loadUserData(backendService)
-    
-    // Try to load user preferences
-    await loadUserPreferences(backendService)
-    
-    // Create user session
-    await createUserSession(backendService)
-    
-    // Store auth state and identity for next session
-    localStorage.setItem('icp_auth_state', 'authenticated')
-    localStorage.setItem('icp_dev_identity_simple', JSON.stringify({
-      secretKey: Array.from(identity.getKeyPair().secretKey)
-    }))
-    
-    return true
+ const authenticateWithIdentity = async (identity) => {
+  const principal = identity.getPrincipal()
+  
+  console.log('🔐 Authenticating with Principal:', principal.toString())
+  
+  setIdentity(identity)
+  setPrincipal(principal)
+  setIsAuthenticated(true)
+  
+  const backendService = await createActorConnection(identity)
+  
+  // Try to load existing user - but don't block if it fails
+  try {
+    const existingUser = await backendService.getUser()
+    if (existingUser) {
+      setUser(existingUser)
+      console.log('👤 Existing user found')
+    } else {
+      console.log('📝 New user - registration required')
+    }
+  } catch (err) {
+    console.warn('Could not load user data:', err)
+    // Continue anyway
   }
+  
+  // Store auth state
+  localStorage.setItem('icp_auth_state', 'authenticated')
+  
+  return true
+}
 
   const login = async () => {
     try {
@@ -158,44 +162,52 @@ export const ICPProvider = ({ children }) => {
     }
   }
 
-  // Update handleWalletConnect function
+    // Update handleWalletConnect in ICPContext.jsx
   const handleWalletConnect = async (identity, walletName) => {
+  try {
+    console.log('🔗 Connecting wallet:', walletName)
+    console.log('🆔 Principal:', identity.getPrincipal().toString())
+    
+    setShowWalletModal(false)
+    setCurrentWallet({ identity, name: walletName })
+    
+    await authenticateWithIdentity(identity)
+    
+    return true
+  } catch (err) {
+    console.error('Wallet connection error:', err)
+    setError('Failed to connect wallet')
+    return false
+  }
+}
+
+  // Update handleWalletCreate function
+  const handleWalletCreate = async (identity, walletName, mnemonic, extraData) => {
     try {
-      console.log('🔗 Connecting wallet:', walletName)
-      console.log('🆔 Principal:', identity.getPrincipal().toString())
-      
       setShowWalletModal(false)
       setCurrentWallet({ identity, name: walletName })
       
-      // Store this identity as current session
-      const principal = identity.getPrincipal()
-      const keyData = {
-        privateKey: Array.from(identity.getKeyPair().secretKey),
-        publicKey: Array.from(identity.getKeyPair().publicKey),
-        principal: principal.toString(),
-        walletName: walletName,
-        connectedAt: Date.now()
+      await authenticateWithIdentity(identity)
+      
+      // If we have email data, trigger registration
+      if (extraData?.email) {
+        console.log('🔄 Registering user with email:', extraData.email)
+        
+        const principal = identity.getPrincipal().toString()
+        const walletAddress = `icp_${principal.slice(0, 17)}`
+        
+        // Register user in backend
+        const result = await registerUser(walletAddress, walletName, extraData.email)
+        
+        if (result.success) {
+          console.log('✅ User registered successfully:', result.data)
+        } else {
+          // If registration fails but it's because user exists, that's ok
+          if (!result.error.includes('already registered')) {
+            console.error('❌ Registration failed:', result.error)
+          }
+        }
       }
-      
-      // Store current session identity
-      localStorage.setItem('icp_current_session', JSON.stringify(keyData))
-      
-      await authenticateWithIdentity(identity)
-      
-      return true
-    } catch (err) {
-      console.error('Wallet connection error:', err)
-      setError('Failed to connect wallet')
-      return false
-    }
-  }
-
-  const handleWalletCreate = async (identity, walletName, mnemonic) => {
-    try {
-      setShowWalletModal(false)
-      setCurrentWallet({ identity, name: walletName, mnemonic })
-      
-      await authenticateWithIdentity(identity)
       
       return true
     } catch (err) {
@@ -247,23 +259,33 @@ export const ICPProvider = ({ children }) => {
   }
 
   const loadUserData = async (backendService = backend) => {
-    try {
-      if (!backendService) return null
-      
-      const userData = await backendService.getUser()
+  try {
+    if (!backendService || !principal) return null
+    
+    console.log('🔄 Loading user data for principal:', principal.toString())
+    
+    const userData = await backendService.getUser()
+    
+    if (userData) {
+      console.log('✅ User data found:', userData)
       setUser(userData)
       return userData
-    } catch (err) {
-      console.error('Load user error:', err)
-      
-      // Don't show error for user not found - this is normal for new users
-      if (!err.message.includes('not found')) {
-        console.warn('Failed to load user data:', err.message)
-      }
-      
+    } else {
+      console.log('⚠️ No user data found - new user needs registration')
+      setUser(null)
       return null
     }
+  } catch (err) {
+    console.error('Load user error:', err)
+    
+    // Don't show error for user not found - this is normal for new users
+    if (!err.message.includes('not found')) {
+      console.warn('Failed to load user data:', err.message)
+    }
+    
+    return null
   }
+}
 
   const loadUserPreferences = async (backendService = backend) => {
     try {
@@ -299,6 +321,7 @@ export const ICPProvider = ({ children }) => {
     }
   }
 
+  // Update registerUser to use email-based registration
   const registerUser = async (walletAddress, username, email) => {
     try {
       if (!backend) {
@@ -309,9 +332,10 @@ export const ICPProvider = ({ children }) => {
         throw new Error('Must be authenticated to register')
       }
 
-      console.log('🔄 Registering user with principal:', principal?.toString())
+      console.log('🔄 Registering user with email:', email)
       
-      const result = await backend.registerUser(walletAddress, username, email)
+      // Try email-based registration first
+      const result = await backend.registerUserByEmail(email, username, walletAddress)
       
       if (result.Ok) {
         setUser(result.Ok)
@@ -323,13 +347,7 @@ export const ICPProvider = ({ children }) => {
       }
     } catch (err) {
       console.error('Registration error:', err)
-      
-      // More specific error handling
-      if (err.message.includes('certificate') || err.message.includes('signature')) {
-        return { success: false, error: 'Connection failed. Please ensure DFX is running and try again.' }
-      } else {
-        return { success: false, error: err.message }
-      }
+      return { success: false, error: err.message }
     }
   }
 

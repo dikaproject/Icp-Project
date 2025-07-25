@@ -169,6 +169,77 @@ fn is_qr_already_used(qr_id: &str) -> bool {
 
 #[update]
 #[candid_method(update)]
+async fn register_user_by_email(
+    email: String,
+    username: Option<String>,
+    wallet_address: String,
+) -> Result<User, String> {
+    let caller = caller();
+    if caller == Principal::anonymous() {
+        return Err("Anonymous users cannot register".to_string());
+    }
+
+    // Validate email format
+    if email.is_empty() || !email.contains('@') {
+        return Err("Valid email is required".to_string());
+    }
+
+    // Check if email already exists
+    let email_exists = USERS.with(|users| {
+        users.borrow().iter().any(|(_, user)| {
+            user.email.as_ref() == Some(&email)
+        })
+    });
+
+    if email_exists {
+        return Err("Email already registered. Please use a different email.".to_string());
+    }
+
+    // Check if principal already exists
+    let existing_user = USERS.with(|users| users.borrow().get(&caller));
+    if existing_user.is_some() {
+        return Err("Principal already registered".to_string());
+    }
+
+    let user = User {
+        id: caller,
+        wallet_address,
+        created_at: ic_cdk::api::time(),
+        username,
+        email: Some(email),
+        balance: 0,
+    };
+
+    USERS.with(|users| {
+        users.borrow_mut().insert(caller, user.clone());
+    });
+
+    ic_cdk::println!("User registered with email: {} -> {}", user.email.as_ref().unwrap(), caller.to_text());
+    Ok(user)
+}
+
+#[query]
+#[candid_method(query)]
+fn check_email_availability(email: String) -> bool {
+    USERS.with(|users| {
+        !users.borrow().iter().any(|(_, user)| {
+            user.email.as_ref() == Some(&email)
+        })
+    })
+}
+
+#[query]
+#[candid_method(query)]
+fn get_user_by_email(email: String) -> Option<User> {
+    USERS.with(|users| {
+        users.borrow().iter()
+            .find(|(_, user)| user.email.as_ref() == Some(&email))
+            .map(|(_, user)| user.clone())
+    })
+}
+
+#[update]
+#[candid_method(update)]
 async fn save_wallet_identity(encrypted_seed: String, wallet_name: String) -> Result<String, String> {
     let caller = ic_cdk::caller();
     if caller == Principal::anonymous() {
