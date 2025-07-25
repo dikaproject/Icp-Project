@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react'
 import { Actor, HttpAgent } from '@dfinity/agent'
 import { Ed25519KeyIdentity } from '@dfinity/identity'
 import { createActor, PaymentBackendService } from '../services/backend.js'
+import WalletManager from '../components/WalletManager.jsx'
 
 const ICPContext = createContext()
 
@@ -24,6 +25,8 @@ export const ICPProvider = ({ children }) => {
   const [activeSession, setActiveSession] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [showWalletModal, setShowWalletModal] = useState(false)
+  const [currentWallet, setCurrentWallet] = useState(null)
 
   const canisterId = import.meta.env.VITE_CANISTER_ID || 'uxrrr-q7777-77774-qaaaq-cai'
   const host = import.meta.env.VITE_IC_HOST || 'http://localhost:4943'
@@ -36,20 +39,31 @@ export const ICPProvider = ({ children }) => {
   const initAuth = async () => {
     try {
       setError(null)
-      // Check if we have stored identity from previous session
-      const storedAuth = localStorage.getItem('icp_auth_state')
-      const storedIdentity = localStorage.getItem('icp_dev_identity_simple')
       
-      if (storedAuth && storedIdentity) {
-        // Try to restore previous session
+      // Check if we have a current session
+      const currentSession = localStorage.getItem('icp_current_session')
+      
+      if (currentSession) {
         try {
-          const identityData = JSON.parse(storedIdentity)
-          const restoredIdentity = Ed25519KeyIdentity.fromSecretKey(new Uint8Array(identityData.secretKey))
+          const sessionData = JSON.parse(currentSession)
+          const restoredIdentity = Ed25519KeyIdentity.fromSecretKey(new Uint8Array(sessionData.privateKey))
+          
+          console.log('🔄 Restoring session for:', sessionData.walletName)
+          console.log('🆔 Principal:', sessionData.principal)
+          
+          setCurrentWallet({ 
+            identity: restoredIdentity, 
+            name: sessionData.walletName 
+          })
+          
           await authenticateWithIdentity(restoredIdentity)
+          
+          console.log('✅ Session restored successfully')
+          
         } catch (err) {
-          console.warn('Failed to restore identity, will create new one on login')
+          console.warn('Failed to restore session, clearing stored data')
+          localStorage.removeItem('icp_current_session')
           localStorage.removeItem('icp_auth_state')
-          localStorage.removeItem('icp_dev_identity_simple')
           await createActorConnection()
         }
       } else {
@@ -131,37 +145,73 @@ export const ICPProvider = ({ children }) => {
       setIsLoading(true)
       setError(null)
       
-      // Simple approach: just generate a random identity each time
-      // In production, you'd use Internet Identity or other auth method
-      const devIdentity = Ed25519KeyIdentity.generate()
-      
-      console.log('🔑 Development Principal:', devIdentity.getPrincipal().toString())
-      
-      await authenticateWithIdentity(devIdentity)
+      // Show wallet selection modal instead of auto-generating
+      setShowWalletModal(true)
       
       return true
     } catch (err) {
       console.error('Login error:', err)
-      
-      // More specific error handling
-      if (err.message.includes('certificate') || err.message.includes('signature')) {
-        setError('Connection failed. Please ensure DFX is running and try again.')
-      } else {
-        setError('Login failed. Please try again.')
-      }
-      
+      setError('Login failed. Please try again.')
       return false
     } finally {
       setIsLoading(false)
     }
   }
 
+  // Update handleWalletConnect function
+  const handleWalletConnect = async (identity, walletName) => {
+    try {
+      console.log('🔗 Connecting wallet:', walletName)
+      console.log('🆔 Principal:', identity.getPrincipal().toString())
+      
+      setShowWalletModal(false)
+      setCurrentWallet({ identity, name: walletName })
+      
+      // Store this identity as current session
+      const principal = identity.getPrincipal()
+      const keyData = {
+        privateKey: Array.from(identity.getKeyPair().secretKey),
+        publicKey: Array.from(identity.getKeyPair().publicKey),
+        principal: principal.toString(),
+        walletName: walletName,
+        connectedAt: Date.now()
+      }
+      
+      // Store current session identity
+      localStorage.setItem('icp_current_session', JSON.stringify(keyData))
+      
+      await authenticateWithIdentity(identity)
+      
+      return true
+    } catch (err) {
+      console.error('Wallet connection error:', err)
+      setError('Failed to connect wallet')
+      return false
+    }
+  }
+
+  const handleWalletCreate = async (identity, walletName, mnemonic) => {
+    try {
+      setShowWalletModal(false)
+      setCurrentWallet({ identity, name: walletName, mnemonic })
+      
+      await authenticateWithIdentity(identity)
+      
+      return true
+    } catch (err) {
+      console.error('Wallet creation error:', err)
+      setError('Failed to create wallet')
+      return false
+    }
+  }
+
+  // Update logout to clear session
   const logout = async () => {
     try {
       setIsLoading(true)
       setError(null)
       
-      // End active session before logout
+      // End active session
       if (activeSession && backend) {
         try {
           await backend.endUserSession(activeSession.session_id)
@@ -170,19 +220,24 @@ export const ICPProvider = ({ children }) => {
         }
       }
       
+      // Clear all state
       setIsAuthenticated(false)
       setIdentity(null)
       setPrincipal(null)
       setUser(null)
       setUserPreferences(null)
       setActiveSession(null)
+      setCurrentWallet(null)
       
-      // Clear stored auth state
+      // Clear stored session data
       localStorage.removeItem('icp_auth_state')
-      localStorage.removeItem('icp_dev_identity_simple')
+      localStorage.removeItem('icp_current_session')
       
       // Create anonymous actor
       await createActorConnection()
+      
+      console.log('✅ Logout successful')
+      
     } catch (err) {
       console.error('Logout error:', err)
       setError('Logout failed')
@@ -500,12 +555,35 @@ export const ICPProvider = ({ children }) => {
     validateQRCode,
     processPayment,
     canisterId,
-    host
+    host,
+    currentWallet,
+    showWalletModal,
+    setShowWalletModal,
+    handleWalletConnect,
+    handleWalletCreate,
   }
 
   return (
     <ICPContext.Provider value={value}>
       {children}
+      
+      {/* Wallet Manager Modal */}
+      {showWalletModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <button
+        onClick={() => setShowWalletModal(false)}
+        className="absolute -top-10 right-0 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-100 z-10"
+      >
+        ✕
+      </button>
+      <WalletManager
+        onWalletConnect={handleWalletConnect}
+        onWalletCreate={handleWalletCreate}
+      />
+    </div>
+  </div>
+)}
     </ICPContext.Provider>
   )
 }
