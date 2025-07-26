@@ -47,11 +47,12 @@ ICP Payment Gateway v1 adalah **MVP (Minimum Viable Product)** solusi pembayaran
 
 ### � Coming in v2 | Akan Hadir di v2
 
-- � **Internet Identity** integration
-- 🌐 **Real ICP wallet** integration (Plug, Stoic)
-- � **Actual ICP transactions**
-- 📱 **Mobile app**
-- 🏪 **Merchant dashboard**
+- **Internet Identity** integration
+- **Real ICP wallet** integration (Plug, Stoic)
+- **Actual ICP transactions**
+- **Merchant dashboard**
+- **All currency support**
+- **Gateway payment for any platfrom** like midtrans / mirip midtrans
 
 ---
 
