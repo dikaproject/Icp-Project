@@ -1,447 +1,418 @@
-# 🚀 ICP Payment Gateway - Decentralized Global Payment Solution
+# 🚀 ICP Payment Gateway v1 - Decentralized Global Payment Solution
 
 <div align="center">
 
-![ICP Payment Gateway](https://img.shields.io/badge/ICP-Payment%20Gateway-blue?style=for-the-badge&logo=internet-computer)
+![ICP Payment Gateway](https://img.shields.io/badge/ICP-Payment%20Gateway%20v1-blue?style=for-the-badge&logo=internet-computer)
 ![Rust](https://img.shields.io/badge/Rust-000000?style=for-the-badge&logo=rust&logoColor=white)
 ![React](https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black)
 ![Internet Computer](https://img.shields.io/badge/Internet%20Computer-29ABE2?style=for-the-badge&logo=internet-computer&logoColor=white)
 
-**A fully decentralized payment gateway built on Internet Computer Protocol (ICP) that enables global cross-border payments with automatic fiat-to-ICP conversion through QR code scanning.**
+**A decentralized payment gateway built on Internet Computer Protocol (ICP) that enables global cross-border payments with automatic fiat-to-ICP conversion through QR code scanning.**
+
+**Gateway pembayaran terdesentralisasi yang dibangun di Internet Computer Protocol (ICP) yang memungkinkan pembayaran lintas batas global dengan konversi otomatis fiat-ke-ICP melalui pemindaian kode QR.**
 
 </div>
 
 ---
 
-## 🌟 Overview
+## 🌟 Overview | Gambaran Umum
 
-ICP Payment Gateway is a revolutionary blockchain-based payment solution that allows anyone, anywhere in the world to:
+### English
+ICP Payment Gateway v1 is a **MVP (Minimum Viable Product)** blockchain-based payment solution that demonstrates the core functionality of decentralized payments. This version includes essential features for testing and demonstration purposes, with full production features planned for v2.
 
-- 💸 **Send & Receive Global Payments** - Cross-border transactions with any fiat currency
-- 🔄 **Automatic Currency Conversion** - Real-time fiat to ICP conversion via HTTPS outcalls
-- 📱 **Universal QR Code Payments** - Scan to pay from any wallet
-- 🔐 **100% Decentralized** - No reliance on traditional payment processors
-- 🌐 **Blockchain Transparency** - All transactions recorded on ICP blockchain
-- 🏦 **Financial Inclusion** - Banking services for the unbanked
+**Current Status**: ✅ **Fully functional MVP ready for testing**
 
----
+### Indonesia
+ICP Payment Gateway v1 adalah **MVP (Minimum Viable Product)** solusi pembayaran berbasis blockchain yang mendemonstrasikan fungsionalitas inti dari pembayaran terdesentralisasi. Versi ini mencakup fitur penting untuk pengujian dan demonstrasi, dengan fitur produksi lengkap direncanakan untuk v2.
 
-## 🏗️ Architecture
-
-### System Flow
-```
-User Creates Payment Request
-        ↓
-QR Code Generated (Canister)
-        ↓
-Real-time ICP Rate Fetched (HTTPS Outcall)
-        ↓
-User Scans QR & Pays (Mock Wallet)
-        ↓
-Transaction Recorded (Blockchain)
-        ↓
-Payment Verified & Completed
-```
-
-### Technology Stack
-
-| Layer | Technology | Purpose |
-|-------|------------|---------|
-| 🧠 **Smart Contracts** | Rust Canisters | Core business logic, data storage |
-| 🌐 **External Data** | HTTPS Outcalls | Real-time exchange rates from CoinGecko |
-| 🎨 **Frontend** | React + Vite | User interface hosted on ICP |
-| 🔐 **Authentication** | Mock Wallet (v1) | Simplified authentication for testing |
-| 💰 **Wallet Integration** | Mock Implementation | Will integrate Plug/Stoic in v2 |
-| 📊 **Data Storage** | Stable Structures | Persistent on-chain data storage |
+**Status Saat Ini**: ✅ **MVP yang berfungsi penuh siap untuk pengujian**
 
 ---
 
-## 🚀 Quick Start
+## 🔥 Current Features v1 | Fitur Saat Ini v1
 
-### Prerequisites
+### ✅ Implemented Features | Fitur yang Telah Diimplementasikan
 
-- **Node.js** v18+ and npm/yarn
-- **Rust** with wasm32 target
-- **DFX** v0.24.0+
-- **Git**
+| Feature | English | Indonesia | Status |
+|---------|---------|-----------|---------|
+| 👤 **User Management** | Mock wallet authentication & user registration | Autentikasi dompet mock & registrasi pengguna | ✅ |
+| 📱 **QR Generation** | Generate payment QR codes with 30-min expiration | Buat kode QR pembayaran dengan kadaluarsa 30 menit | ✅ |
+| 💰 **Multi-Currency** | Support IDR, USD, EUR, JPY with flag icons | Dukungan IDR, USD, EUR, JPY dengan ikon bendera | ✅ |
+| 🔄 **Exchange Rates** | Real-time rates via CoinGecko HTTPS outcalls | Nilai tukar real-time via panggilan HTTPS CoinGecko | ✅ |
+| 💳 **Payment Processing** | Mock payment simulation with transaction recording | Simulasi pembayaran mock dengan pencatatan transaksi | ✅ |
+| 📊 **Transaction History** | View complete payment history | Lihat riwayat pembayaran lengkap | ✅ |
+| 🏦 **Top-up System** | QRIS top-up (Indonesia), Credit Card & Web3 coming soon | Top-up QRIS (Indonesia), Kartu Kredit & Web3 segera hadir | ✅ |
+| 📈 **Network Statistics** | Real-time payment network analytics | Analitik jaringan pembayaran real-time | ✅ |
+| 🎨 **Modern UI** | Responsive React frontend with Tailwind CSS | Frontend React responsif dengan Tailwind CSS | ✅ |
 
-### Installation
+### � Coming in v2 | Akan Hadir di v2
 
-1. **Clone the Repository**
-   ```bash
-   git clone https://github.com/your-username/icp-payment-gateway.git
-   cd icp-payment-gateway
-   ```
-
-2. **Install Rust Dependencies**
-   ```bash
-   # Install Rust (if not already installed)
-   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-   
-   # Add wasm32 target
-   rustup target add wasm32-unknown-unknown
-   ```
-
-3. **Install DFX**
-   ```bash
-   DFX_VERSION=0.24.1 sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"
-   ```
-
-4. **Install Frontend Dependencies**
-   ```bash
-   cd src/frontend
-   npm install
-   cd ../..
-   ```
-
-### 🔧 Development Setup
-
-1. **Start Local ICP Replica**
-   ```bash
-   dfx start --background --clean
-   ```
-
-2. **Deploy Backend Canister**
-   ```bash
-   dfx deploy backend
-   ```
-
-3. **Build & Deploy Frontend**
-   ```bash
-   cd src/frontend
-   npm run build
-   cd ../..
-   dfx deploy frontend
-   ```
-
-4. **Access Your Application**
-   ```bash
-   # Get canister URLs
-   echo "Frontend: http://$(dfx canister id frontend).localhost:4943/"
-   echo "Backend Candid: http://127.0.0.1:4943/?canisterId=$(dfx canister id __Candid_UI)&id=$(dfx canister id backend)"
-   ```
+- � **Internet Identity** integration
+- 🌐 **Real ICP wallet** integration (Plug, Stoic)
+- � **Actual ICP transactions**
+- 📱 **Mobile app**
+- 🏪 **Merchant dashboard**
 
 ---
 
-## 📋 Available Scripts
+## 🚀 Quick Setup | Pengaturan Cepat
 
-### Backend Commands
+### Prerequisites | Prasyarat
+
 ```bash
-# Build backend only
-dfx build backend
+# English: Required software
+# Indonesia: Software yang diperlukan
 
-# Deploy backend with logs
-dfx deploy backend
-
-# Check backend status
-dfx canister status backend
-
-# View backend logs
-dfx canister logs backend
+1. Install DFX v0.27.0+
+2. Install Rust with wasm32 target
+3. Install Node.js via NVM
+4. Git
 ```
 
-### Frontend Commands
+### Installation Steps | Langkah Instalasi
+
+#### 1. Install Dependencies | Instal Dependensi
+
+**English: Install required tools**
 ```bash
-cd src/frontend
+# Install DFX
+DFX_VERSION=0.27.0 sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"
 
-# Development server
-npm run dev
+# Install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+rustup target add wasm32-unknown-unknown
 
-# Production build
-npm run build
-
-# Preview build
-npm run preview
+# Install NVM and Node.js
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+nvm install 18
+nvm use 18
 ```
 
-### Full Project Commands
+**Indonesia: Instal tools yang diperlukan**
 ```bash
-# Deploy everything
-dfx deploy
+# Instal DFX
+DFX_VERSION=0.27.0 sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"
 
-# Stop local replica
-dfx stop
+# Instal Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+rustup target add wasm32-unknown-unknown
 
-# Clean and restart
-dfx start --clean --background
+# Instal NVM dan Node.js
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+nvm install 18
+nvm use 18
 ```
 
----
+#### 2. Clone Project | Klon Proyek
 
-## 🎯 Core Features (v1 Implementation)
-
-### ✅ **User Management**
-- **Mock Wallet Authentication** - Simplified user registration for testing
-- **User Profiles** - Store user preferences and transaction history
-- **Wallet Address Management** - Generate and manage user identities
-
-### ✅ **Payment Processing**
-- **QR Code Generation** - Unique payment requests with 30-minute expiration
-- **Multi-Currency Support** - USD, EUR, IDR, JPY, GBP, SGD
-- **Real-time Exchange Rates** - Live ICP pricing via CoinGecko API
-- **Transaction Simulation** - Mock payment processing for testing
-
-### ✅ **Blockchain Integration**
-- **Stable Storage** - Persistent data storage on ICP
-- **HTTPS Outcalls** - External API integration for exchange rates
-- **Transparent Transactions** - All payments recorded on-chain
-- **Smart Contract Logic** - Automated payment processing
-
----
-
-## 🛠️ API Reference
-
-### Backend Canister Methods
-
-#### User Management
-```rust
-// Register new user
-register_user(wallet_address: String, username: Option<String>, email: Option<String>) -> Result<User, String>
-
-// Update user profile
-update_user_profile(username: Option<String>, email: Option<String>) -> Result<User, String>
-
-// Get current user
-get_user() -> Option<User>
-
-// Get user by ID
-get_user_by_id(user_id: Principal) -> Option<User>
-
-// Get user statistics
-get_user_stats() -> Option<UserStats>
-```
-
-#### Payment Operations
-```rust
-// Generate payment QR code
-generate_qr(fiat_amount: f64, currency: String, description: Option<String>) -> Result<QRCode, String>
-
-// Validate QR code
-validate_qr_code(qr_id: String) -> Result<QRDisplayInfo, String>
-
-// Process payment
-process_payment(qr_id: String, transaction_hash: Option<String>) -> Result<Transaction, String>
-
-// Get transaction
-get_transaction(transaction_id: String) -> Option<Transaction>
-
-// Get user transactions
-get_user_transactions() -> Vec<Transaction>
-
-// Get user transaction summaries
-get_user_transaction_summaries() -> Vec<TransactionSummary>
-```
-
-#### Exchange Rates
-```rust
-// Fetch live exchange rate
-fetch_exchange_rate(currency: String) -> Result<ExchangeRate, String>
-
-// Get cached exchange rate
-get_cached_exchange_rate(currency: String) -> Option<ExchangeRate>
-
-// Get supported currencies
-get_supported_currencies_list() -> Vec<String>
-```
-
-#### System Functions
-```rust
-// Get system statistics
-get_system_stats() -> SystemStats
-
-// Cleanup expired QR codes
-cleanup_expired_qr_codes() -> u64
-
-// Cleanup expired transactions
-cleanup_expired_transactions() -> u64
-```
-
----
-
-## 🧪 Testing
-
-### Complete Testing Flow
-
-1. **Access the Application**
-   ```bash
-   # After deployment, open in browser
-   http://$(dfx canister id frontend).localhost:4943/
-   ```
-
-2. **Test User Registration**
-   - Click "Mock" button to generate wallet address
-   - Click "Register User" to create account
-   - Wait for "✅ Connected" status
-
-3. **Test QR Generation**
-   - Go to "📱 Generate QR" tab
-   - Enter amount (e.g., 100)
-   - Select currency (e.g., USD)
-   - Click "Fetch Exchange Rate"
-   - Click "Generate QR Code"
-   - View QR code and copy QR ID
-
-4. **Test Payment Processing**
-   - Go to "💳 Pay/Scan" tab
-   - Paste QR ID
-   - Click "Lookup QR"
-   - Click "Pay Now"
-   - View payment confirmation
-
-5. **Test Transaction History**
-   - Go to "📋 History" tab
-   - View completed transaction
-   - Check transaction details
-
-### Backend Testing via Candid UI
 ```bash
-# Open Candid UI
-http://127.0.0.1:4943/?canisterId=$(dfx canister id __Candid_UI)&id=$(dfx canister id backend)
-
-# Test key functions:
-register_user("wallet123", null, null)
-fetch_exchange_rate("USD")
-generate_qr(100.0, "USD", null)
-get_user_transactions()
+# English: Clone the repository
+# Indonesia: Klon repositori
+git clone https://github.com/your-username/icp-payment-gateway.git
+cd icp-payment-gateway
 ```
 
-### Frontend Development Testing
-```bash
-cd src/frontend
-npm run dev  # Development server with hot reload
-npm run build  # Production build
-npm run preview  # Preview production build
+#### 3. Setup Environment | Pengaturan Environment
+
+**English: Create environment files BEFORE building**
+**Indonesia: Buat file environment SEBELUM build**
+
+Create `/src/frontend/.env`:
+```env
+VITE_CANISTER_ID=backend_canister_id
+VITE_IC_HOST=http://localhost:4943
+VITE_DFX_NETWORK=local
 ```
 
----
-
-## 🚢 Deployment
-
-### Local Development
-```bash
-dfx start --background
-dfx deploy
-```
-
-### IC Mainnet Deployment
-```bash
-# Deploy to IC mainnet (requires cycles)
-dfx deploy --network ic --with-cycles 1000000000000
-```
-
-### Production Checklist
-- [ ] Update environment variables
-- [ ] Test all API endpoints
-- [ ] Verify exchange rate integration
-- [ ] Test QR code generation/validation
-- [ ] Verify transaction processing
-- [ ] Test frontend responsiveness
-
----
-
-## 🔧 Configuration
-
-### Environment Variables
-```bash
-# Frontend .env.local
+Create `/src/frontend/.env.local`:
+```env
+# ICP Environment Configuration
 VITE_NETWORK=local
 VITE_HOST=http://localhost:4943
-VITE_CANISTER_ID_BACKEND=your-backend-canister-id
+VITE_CANISTER_ID_BACKEND=
+VITE_CANISTER_ID_FRONTEND=
 VITE_REPLICA_HOST=http://localhost:4943
 VITE_DEVELOPMENT=true
 ```
 
-### Supported Currencies
-- USD (US Dollar)
-- EUR (Euro)
-- IDR (Indonesian Rupiah)
-- JPY (Japanese Yen)
-- GBP (British Pound)
-- SGD (Singapore Dollar)
+#### 4. Install Frontend Dependencies | Instal Dependensi Frontend
+
+```bash
+cd src/frontend
+npm install
+npm run build
+cd ../..
+```
+
+#### 5. Run Development | Jalankan Development
+
+**English: Open 3 terminals in VS Code**
+**Indonesia: Buka 3 terminal di VS Code**
+
+**Terminal 1** - DFX (logs visible):
+```bash
+dfx start --clean
+```
+
+**Terminal 2** - Deploy Backend:
+```bash
+dfx deploy backend
+# Optional: dfx deploy frontend (for canister mode)
+```
+
+**Terminal 3** - Frontend Development:
+```bash
+cd src/frontend
+npm run dev
+```
+
+#### 6. Configure Backend URL | Konfigurasi URL Backend
+
+**English: Adjust URL based on your development setup**
+**Indonesia: Sesuaikan URL berdasarkan pengaturan development Anda**
+
+Edit `/src/backend/src/topup.rs`:
+
+```rust
+fn get_base_url() -> &'static str {
+    // DEVELOPMENT MODE (npm run dev - port 5173)
+    "http://localhost:5173"
+    
+    // OR if using port 3000:
+    // "http://localhost:3000"
+    
+    // CANISTER MODE (uncomment line below, comment line above)
+    // "http://127.0.0.1:4943" 
+    // example: http://uzt4z-lp777-77774-qaabq-cai.localhost:4943/
+    
+    // PRODUCTION MODE (uncomment line below, comment others)
+    // "https://your-production-domain.com" coming soon
+}
+```
 
 ---
 
-## 🆘 Troubleshooting
+## 🎯 Access Your Application | Akses Aplikasi Anda
 
-### Common Issues
-
-**DFX Start Fails**
+### Development Mode | Mode Development
 ```bash
-# Clean and restart
-dfx stop
-pkill -f dfx
-dfx start --clean --background
+# Frontend (Vite dev server)
+http://localhost:5173
+
+# Or if using port 3000:
+http://localhost:3000
 ```
 
-**Frontend Build Error**
+### Canister Mode | Mode Canister
 ```bash
-# Ensure dependencies are installed
+# Get canister URLs | Dapatkan URL canister
+echo "Frontend: http://$(dfx canister id frontend).localhost:4943/"
+echo "Backend Candid: http://127.0.0.1:4943/?canisterId=$(dfx canister id __Candid_UI)&id=$(dfx canister id backend)"
+```
+
+---
+
+## 🧪 Testing Guide | Panduan Pengujian
+
+### Quick Test Flow | Alur Pengujian Cepat
+
+**English**:
+1. **Register User**: Click "Mock" → Generate wallet → "Register User"
+2. **Generate QR**: Enter amount → Select currency → "Generate QR Code"
+3. **Process Payment**: Copy QR ID → Go to "Pay/Scan" → Enter QR ID → "Pay Now"
+4. **View History**: Check "Transaction History" for completed payment
+
+**Indonesia**:
+1. **Daftar Pengguna**: Klik "Mock" → Generate wallet → "Register User"
+2. **Buat QR**: Masukkan jumlah → Pilih mata uang → "Generate QR Code"
+3. **Proses Pembayaran**: Salin QR ID → Pergi ke "Pay/Scan" → Masukkan QR ID → "Pay Now"
+4. **Lihat Riwayat**: Periksa "Transaction History" untuk pembayaran yang selesai
+
+### Complete Testing Instructions | Instruksi Pengujian Lengkap
+📋 **See TESTING.md for detailed testing procedures**
+📋 **Lihat TESTING.md untuk prosedur pengujian terperinci**
+
+---
+
+## 🏗️ Architecture | Arsitektur
+
+### Technology Stack | Stack Teknologi
+
+| Component | Technology | Purpose (EN) | Tujuan (ID) |
+|-----------|------------|---------------|-------------|
+| 🧠 **Backend** | Rust Canisters | Business logic, data storage | Logika bisnis, penyimpanan data |
+| 🌐 **External APIs** | HTTPS Outcalls | Real-time exchange rates | Nilai tukar real-time |
+| 🎨 **Frontend** | React + Vite | User interface | Antarmuka pengguna |
+| 🔐 **Authentication** | Mock Wallet (v1) | Simplified testing auth | Autentikasi pengujian sederhana |
+| 📊 **Storage** | Stable Structures | Persistent blockchain data | Data blockchain persisten |
+
+### System Flow | Alur Sistem
+
+```
+User Registration → QR Generation → Exchange Rate Fetch → Payment Processing → Transaction Recording → History Display
+```
+
+---
+
+## � API Reference | Referensi API
+
+### Core Functions | Fungsi Inti
+
+#### User Management | Manajemen Pengguna
+```rust
+register_user(wallet_address: String, username: Option<String>, email: Option<String>) -> Result<User, String>
+get_user() -> Option<User>
+get_user_stats() -> Option<UserStats>
+```
+
+#### Payment Operations | Operasi Pembayaran
+```rust
+generate_qr(fiat_amount: f64, currency: String, description: Option<String>) -> Result<QRCode, String>
+validate_qr_code(qr_id: String) -> Result<QRDisplayInfo, String>
+process_payment(qr_id: String, transaction_hash: Option<String>) -> Result<Transaction, String>
+```
+
+#### Exchange Rates | Nilai Tukar
+```rust
+fetch_exchange_rate(currency: String) -> Result<ExchangeRate, String>
+get_supported_currencies_list() -> Vec<String>
+```
+
+#### Top-up System | Sistem Top-up
+```rust
+create_qris_topup(amount: f64, currency: String) -> Result<TopUpTransaction, String>
+get_user_topup_history() -> Vec<TopUpTransaction>
+```
+
+---
+
+## 🔧 Configuration | Konfigurasi
+
+### Supported Currencies | Mata Uang yang Didukung
+
+| Currency | English Name | Indonesian Name | Flag |
+|----------|--------------|-----------------|------|
+| IDR | Indonesian Rupiah | Rupiah Indonesia | 🇮🇩 |
+| USD | US Dollar | Dollar Amerika | 🇺🇸 |
+| EUR | Euro | Euro | 🇪🇺 |
+| JPY | Japanese Yen | Yen Jepang | 🇯🇵 |
+
+### Environment Modes | Mode Environment
+
+1. **Development Mode**: `npm run dev` (port 5173/3000)
+2. **Canister Mode**: Deployed to local IC replica
+3. **Production Mode**: IC mainnet (v2 feature)
+
+---
+
+## 🚧 Known Limitations v1 | Keterbatasan yang Diketahui v1
+
+### English
+- **Mock Authentication**: Uses simplified wallet generation for testing
+- **Simulated Payments**: No real ICP transactions, only simulation
+- **Limited Currencies**: Only 4 currencies supported
+- **Development Focus**: Optimized for testing and demonstration
+
+### Indonesia
+- **Autentikasi Mock**: Menggunakan generasi dompet sederhana untuk pengujian
+- **Pembayaran Simulasi**: Tidak ada transaksi ICP nyata, hanya simulasi
+- **Mata Uang Terbatas**: Hanya 4 mata uang yang didukung
+- **Fokus Pengembangan**: Dioptimalkan untuk pengujian dan demonstrasi
+
+---
+
+## 🆘 Troubleshooting | Pemecahan Masalah
+
+### Common Issues | Masalah Umum
+
+#### Frontend Build Issues | Masalah Build Frontend
+```bash
+# English: Clean and rebuild
+# Indonesia: Bersihkan dan build ulang
 cd src/frontend
+rm -rf node_modules package-lock.json
 npm install
 npm run build
 ```
 
-**Canister Deployment Issues**
+#### DFX Issues | Masalah DFX
 ```bash
-# Check canister status
-dfx canister status --all
-dfx ping
+# English: Reset DFX
+# Indonesia: Reset DFX
+dfx stop
+pkill -f dfx
+dfx start --clean
 ```
 
-**Exchange Rate Fetch Fails**
+#### Environment File Issues | Masalah File Environment
 ```bash
-# Check backend logs
-dfx canister logs backend
+# English: Ensure .env files exist before building
+# Indonesia: Pastikan file .env ada sebelum build
+ls -la src/frontend/.env*
 ```
 
-### Getting Help
+### Getting Help | Mendapatkan Bantuan
 
+**English**:
 - 📖 [IC Developer Docs](https://internetcomputer.org/docs/)
 - 💬 [IC Developer Forum](https://forum.dfinity.org/)
 - 🐛 [Report Issues](https://github.com/your-username/icp-payment-gateway/issues)
+
+**Indonesia**:
+- 📖 [Dokumentasi Developer IC](https://internetcomputer.org/docs/)
+- 💬 [Forum Developer IC](https://forum.dfinity.org/)
+- 🐛 [Laporkan Masalah](https://github.com/your-username/icp-payment-gateway/issues)
 
 ---
 
 ## 🗺️ Roadmap
 
-### v1 (Current) - Core Payment System ✅
-- [x] User registration and management
-- [x] QR code generation and validation
-- [x] Real-time exchange rate integration
-- [x] Mock payment processing
-- [x] Transaction history
-- [x] Modern React frontend
+### v1 (Current) - MVP ✅
+- [x] Core payment flow
+- [x] QR code system
+- [x] Mock authentication
+- [x] Basic transaction history
+- [x] Multi-currency support
+- [x] QRIS top-up system
 
-### v2 (Next) - Wallet Integration
+### v2 (Next) - Production Ready
 - [ ] Internet Identity integration
-- [ ] Plug Wallet connection
-- [ ] Stoic Wallet support
-- [ ] Real ICP transactions
-- [ ] Enhanced security features
+- [ ] Real ICP wallet connection
+- [ ] Actual ICP transactions
+- [ ] Enhanced security
+- [ ] Mobile responsiveness
 
 ### v3 (Future) - Advanced Features
 - [ ] Mobile app (React Native)
-- [ ] Recurring payments
-- [ ] Multi-signature support
-- [ ] Advanced analytics
 - [ ] Merchant dashboard
+- [ ] Advanced analytics
+- [ ] Multi-signature support
+- [ ] Recurring payments
 
 ---
 
-## 🎖️ Acknowledgments
+## 🎖️ Acknowledgments | Pengakuan
 
+**English**:
 - [DFINITY Foundation](https://dfinity.org/) for the Internet Computer Protocol
 - [IC Developer Community](https://forum.dfinity.org/) for support and guidance
 - [CoinGecko API](https://coingecko.com/api) for real-time exchange rates
-- [Vite](https://vitejs.dev/) for fast frontend development
-- [Tailwind CSS](https://tailwindcss.com/) for styling
+
+**Indonesia**:
+- [DFINITY Foundation](https://dfinity.org/) untuk Internet Computer Protocol
+- [Komunitas Developer IC](https://forum.dfinity.org/) untuk dukungan dan panduan
+- [CoinGecko API](https://coingecko.com/api) untuk nilai tukar real-time
 
 ---
 
 <div align="center">
 
 **Built with ❤️ on the Internet Computer**
+**Dibangun dengan ❤️ di Internet Computer**
 
 [![Internet Computer](https://img.shields.io/badge/Powered%20by-Internet%20Computer-29ABE2?style=for-the-badge&logo=internet-computer)](https://internetcomputer.org/)
+
+**Version 1.0 - MVP Ready for Testing**
+**Versi 1.0 - MVP Siap untuk Pengujian**
 
 </div>

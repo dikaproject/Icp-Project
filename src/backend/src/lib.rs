@@ -118,7 +118,8 @@ fn simple_decrypt(encrypted_data: &str, password: &str) -> Result<String, String
 fn generate_balance_log_id() -> String {
     let timestamp = time();
     let caller = caller();
-    format!("BAL_{}_{}", caller.to_text()[..8].to_string(), timestamp)
+    let random_suffix = timestamp % 1000000; // Add random suffix
+    format!("BAL_{}_{}", caller.to_text()[..8].to_string(), timestamp + random_suffix)
 }
 
 fn generate_qr_usage_log_id() -> String {
@@ -128,25 +129,74 @@ fn generate_qr_usage_log_id() -> String {
 }
 
 fn get_current_balance(user_id: Principal) -> u64 {
-    // Get initial balance from user record
-    let initial_balance = USERS.with(|users| {
-        users.borrow().get(&user_id).map(|u| u.balance).unwrap_or(0)
-    });
-    
-    // Get latest balance from balance change logs
-    let latest_balance_from_logs = BALANCE_CHANGE_LOGS.with(|logs| {
-        logs.borrow()
+    // FIXED: Proper balance calculation from all logs
+    let current_balance = BALANCE_CHANGE_LOGS.with(|logs| {
+        let logs_borrow = logs.borrow();
+        
+        // Get all balance change logs for this user
+        let mut user_logs: Vec<BalanceChangeLog> = logs_borrow
             .iter()
             .filter(|(_, log)| log.user_id == user_id)
-            .map(|(_, log)| log.new_balance)
-            .max()
-            .unwrap_or(initial_balance)
+            .map(|(_, log)| log.clone())
+            .collect();
+        
+        // If no logs, return 0
+        if user_logs.is_empty() {
+            ic_cdk::println!("🔍 No balance logs found for {}, returning 0", 
+                user_id.to_text());
+            return 0;
+        }
+        
+        // Sort by timestamp (oldest first for sequential calculation)
+        user_logs.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+        
+        // FIXED: Calculate balance sequentially through all logs
+        let mut calculated_balance = 0u64;
+        
+        ic_cdk::println!("🔍 Calculating balance for {} from {} logs:", 
+            user_id.to_text(), user_logs.len());
+        
+        for (i, log) in user_logs.iter().enumerate() {
+            // For first log, start from previous_balance
+            if i == 0 {
+                calculated_balance = log.previous_balance;
+                ic_cdk::println!("  [{}] Starting balance: {}", i, calculated_balance);
+            }
+            
+            // Apply the balance change
+            match log.change_type {
+                BalanceChangeType::TopupCompleted | BalanceChangeType::PaymentReceived => {
+                    calculated_balance = calculated_balance.saturating_add(log.amount);
+                }
+                BalanceChangeType::PaymentSent | BalanceChangeType::FeeDeducted => {
+                    calculated_balance = calculated_balance.saturating_sub(log.amount);
+                }
+                BalanceChangeType::Refund => {
+                    calculated_balance = calculated_balance.saturating_add(log.amount);
+                }
+                BalanceChangeType::Adjustment => {
+                    calculated_balance = log.new_balance; // Direct set for adjustments
+                }
+            }
+            
+            // FIXED: Use {:?} for debug formatting instead of {} for Display
+            ic_cdk::println!("  [{}] {:?} {} -> balance: {} (expected: {})", 
+                i, log.change_type, log.amount, calculated_balance, log.new_balance);
+            
+            // Verify calculation matches log
+            if calculated_balance != log.new_balance {
+                ic_cdk::println!("⚠️ Balance mismatch at log {}: calculated={}, logged={}", 
+                    i, calculated_balance, log.new_balance);
+            }
+        }
+        
+        ic_cdk::println!("🔍 Final calculated balance for {}: {}", 
+            user_id.to_text(), calculated_balance);
+        
+        calculated_balance
     });
     
-    ic_cdk::println!("🔍 Balance calculation for {}: initial={}, from_logs={}", 
-        user_id.to_text(), initial_balance, latest_balance_from_logs);
-    
-    latest_balance_from_logs
+    current_balance
 }
 
 fn create_balance_change_log(
@@ -158,10 +208,11 @@ fn create_balance_change_log(
     reference_id: String,
     description: String,
 ) -> BalanceChangeLog {
+    let log_id = generate_balance_log_id();
     let log = BalanceChangeLog {
-        id: generate_balance_log_id(),
+        id: log_id.clone(),
         user_id,
-        change_type,
+        change_type: change_type.clone(),
         amount,
         previous_balance,
         new_balance,
@@ -170,9 +221,22 @@ fn create_balance_change_log(
         description,
     };
     
-    BALANCE_CHANGE_LOGS.with(|logs| {
+    // FIXED: Use {:?} for debug formatting
+    ic_cdk::println!("🔍 Creating balance log: id={}, user={}, type={:?}, amount={}, prev={}, new={}", 
+        log.id, user_id.to_text(), change_type, amount, previous_balance, new_balance);
+    
+    let inserted = BALANCE_CHANGE_LOGS.with(|logs| {
         logs.borrow_mut().insert(log.id.clone(), log.clone());
+        
+        // Verify insertion
+        logs.borrow().get(&log.id).is_some()
     });
+    
+    if inserted {
+        ic_cdk::println!("✅ Balance log successfully inserted: {}", log.id);
+    } else {
+        ic_cdk::println!("❌ Failed to insert balance log: {}", log.id);
+    }
     
     log
 }
@@ -1355,41 +1419,79 @@ async fn process_payment(qr_id: String, transaction_hash: Option<String>) -> Res
 
     // Step 3: Create IMMUTABLE balance change logs
     let fee_amount = calculate_transaction_fee(qr_code.icp_amount);
+    let base_time = time();
     
-    // Log: Payer's balance decrease
-    let payer_new_balance = payer_balance.saturating_sub(total_cost);
-    create_balance_change_log(
-        caller,
-        BalanceChangeType::PaymentSent,
-        qr_code.icp_amount,
-        payer_balance,
-        payer_new_balance,
-        processing_tx.id.clone(),
-        format!("Payment sent to {}", qr_code.user_id.to_text()),
-    );
-    
-    // Log: Fee deduction
-    create_balance_change_log(
-        caller,
-        BalanceChangeType::FeeDeducted,
-        fee_amount,
-        payer_balance,
-        payer_new_balance,
-        processing_tx.id.clone(),
-        format!("Transaction fee for payment {}", processing_tx.id),
-    );
-    
-    // Log: Recipient's balance increase
+    // FIXED: Proper balance calculations
+    let total_deduction = qr_code.icp_amount + fee_amount;
+    let payer_new_balance = payer_balance.saturating_sub(total_deduction);
     let recipient_new_balance = recipient_balance.saturating_add(qr_code.icp_amount);
-    create_balance_change_log(
-        qr_code.user_id,
-        BalanceChangeType::PaymentReceived,
-        qr_code.icp_amount,
-        recipient_balance,
-        recipient_new_balance,
-        processing_tx.id.clone(),
-        format!("Payment received from {}", caller.to_text()),
-    );
+    
+    ic_cdk::println!("💰 Payment amounts: payment={}, fee={}, total_deduction={}", 
+        qr_code.icp_amount, fee_amount, total_deduction);
+    ic_cdk::println!("💰 Balance transitions: payer {} -> {}, recipient {} -> {}", 
+        payer_balance, payer_new_balance, recipient_balance, recipient_new_balance);
+    
+    // FIXED: Create logs with unique IDs and proper sequence
+    
+    // Log 1: Payer's payment sent (amount only, not including fee)
+    let payment_sent_log = BalanceChangeLog {
+        id: format!("BAL_PAYMENT_{}_{}", processing_tx.id, base_time),
+        user_id: caller,
+        change_type: BalanceChangeType::PaymentSent,
+        amount: qr_code.icp_amount,
+        previous_balance: payer_balance,
+        new_balance: payer_balance.saturating_sub(qr_code.icp_amount),
+        timestamp: base_time,
+        reference_id: processing_tx.id.clone(),
+        description: format!("Payment sent: {} {}", qr_code.fiat_amount, qr_code.fiat_currency),
+    };
+    
+    BALANCE_CHANGE_LOGS.with(|logs| {
+        logs.borrow_mut().insert(payment_sent_log.id.clone(), payment_sent_log.clone());
+    });
+    
+    ic_cdk::println!("📝 Created PaymentSent log: {} (amount={}, prev={}, new={})", 
+        payment_sent_log.id, payment_sent_log.amount, payment_sent_log.previous_balance, payment_sent_log.new_balance);
+    
+    // Log 2: Fee deduction from payer
+    let fee_deducted_log = BalanceChangeLog {
+        id: format!("BAL_FEE_{}_{}", processing_tx.id, base_time + 1),
+        user_id: caller,
+        change_type: BalanceChangeType::FeeDeducted,
+        amount: fee_amount,
+        previous_balance: payer_balance.saturating_sub(qr_code.icp_amount),
+        new_balance: payer_new_balance,
+        timestamp: base_time + 1,
+        reference_id: processing_tx.id.clone(),
+        description: format!("Transaction fee: {:.8} ICP", fee_amount as f64 / 100_000_000.0),
+    };
+    
+    BALANCE_CHANGE_LOGS.with(|logs| {
+        logs.borrow_mut().insert(fee_deducted_log.id.clone(), fee_deducted_log.clone());
+    });
+    
+    ic_cdk::println!("📝 Created FeeDeducted log: {} (amount={}, prev={}, new={})", 
+        fee_deducted_log.id, fee_deducted_log.amount, fee_deducted_log.previous_balance, fee_deducted_log.new_balance);
+    
+    // Log 3: Recipient's balance increase
+    let payment_received_log = BalanceChangeLog {
+        id: format!("BAL_RECEIVED_{}_{}", processing_tx.id, base_time + 2),
+        user_id: qr_code.user_id,
+        change_type: BalanceChangeType::PaymentReceived,
+        amount: qr_code.icp_amount,
+        previous_balance: recipient_balance,
+        new_balance: recipient_new_balance,
+        timestamp: base_time + 2,
+        reference_id: processing_tx.id.clone(),
+        description: format!("Payment received: {} {}", qr_code.fiat_amount, qr_code.fiat_currency),
+    };
+    
+    BALANCE_CHANGE_LOGS.with(|logs| {
+        logs.borrow_mut().insert(payment_received_log.id.clone(), payment_received_log.clone());
+    });
+    
+    ic_cdk::println!("📝 Created PaymentReceived log: {} (amount={}, prev={}, new={})", 
+        payment_received_log.id, payment_received_log.amount, payment_received_log.previous_balance, payment_received_log.new_balance);
 
     // Step 4: Create COMPLETED transaction
     let completed_tx = Transaction {
@@ -1425,6 +1527,76 @@ async fn process_payment(qr_id: String, transaction_hash: Option<String>) -> Res
 
     // Return the final transaction (COMPLETED)
     Ok(completed_tx)
+}
+
+#[query]
+#[candid_method(query)]
+fn get_all_network_transactions() -> Vec<NetworkTransaction> {
+    let mut network_transactions = Vec::new();
+    
+    // Add payment transactions
+    TRANSACTIONS.with(|transactions| {
+        for (_, tx) in transactions.borrow().iter() {
+            network_transactions.push(NetworkTransaction {
+                id: tx.id.clone(),
+                transaction_type: NetworkTransactionType::Payment,
+                from_user: Some(tx.from),
+                to_user: Some(tx.to),
+                amount: tx.amount,
+                fiat_amount: tx.fiat_amount,
+                fiat_currency: tx.fiat_currency.clone(),
+                icp_amount: tx.icp_amount,
+                timestamp: tx.timestamp,
+                status: NetworkTransactionStatus::from_transaction_status(&tx.status),
+                reference_id: tx.qr_id.clone(),
+                transaction_hash: tx.transaction_hash.clone(), // This is already Option<String>
+                fee: Some(tx.fee), // Always include fee for payments
+                description: format!("Payment: {} {}", tx.fiat_amount, tx.fiat_currency),
+            });
+        }
+    });
+    
+    // Add topup transactions
+    TOPUP_TRANSACTIONS.with(|topups| {
+        for (_, topup) in topups.borrow().iter() {
+            network_transactions.push(NetworkTransaction {
+                id: topup.id.clone(),
+                transaction_type: NetworkTransactionType::Topup,
+                from_user: None, // Topups don't have from_user
+                to_user: Some(topup.user_id),
+                amount: topup.amount,
+                fiat_amount: topup.fiat_amount,
+                fiat_currency: topup.fiat_currency.clone(),
+                icp_amount: topup.amount,
+                timestamp: topup.created_at,
+                status: NetworkTransactionStatus::from_topup_status(&topup.status),
+                reference_id: topup.reference_id.clone(),
+                transaction_hash: None, // Topups don't have transaction hash
+                fee: None, // Topups don't have fees
+                description: format!("Top-up via {}: {} {}", 
+                    get_topup_method_string(&topup.payment_method),
+                    topup.fiat_amount, 
+                    topup.fiat_currency
+                ),
+            });
+        }
+    });
+    
+    // Sort by timestamp (newest first)
+    network_transactions.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+    
+    ic_cdk::println!("📊 Returning {} network transactions (payments + topups)", network_transactions.len());
+    network_transactions
+}
+
+// Helper function to convert topup method to string
+fn get_topup_method_string(method: &TopUpMethod) -> String {
+    match method {
+        TopUpMethod::QRIS => "QRIS".to_string(),
+        TopUpMethod::CreditCard => "Credit Card".to_string(),
+        TopUpMethod::DebitCard => "Debit Card".to_string(),
+        TopUpMethod::Web3Wallet => "Web3 Wallet".to_string(),
+    }
 }
 
 

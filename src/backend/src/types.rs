@@ -413,3 +413,60 @@ pub struct WalletIdentityResult {
     pub last_accessed: u64,
     pub access_count: u64,
 }
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub enum NetworkTransactionType {
+    Payment,
+    Topup,
+    Withdrawal,
+    Fee,
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub enum NetworkTransactionStatus {
+    Pending,
+    Processing,
+    Completed,
+    Failed,
+    Expired,
+}
+
+impl NetworkTransactionStatus {
+    pub fn from_transaction_status(status: &TransactionStatus) -> Self {
+        match status {
+            TransactionStatus::Pending => NetworkTransactionStatus::Pending,
+            TransactionStatus::Processing => NetworkTransactionStatus::Processing,
+            TransactionStatus::Completed => NetworkTransactionStatus::Completed,
+            TransactionStatus::Failed => NetworkTransactionStatus::Failed,
+            TransactionStatus::Expired => NetworkTransactionStatus::Expired,
+        }
+    }
+    
+    pub fn from_topup_status(status: &TopUpStatus) -> Self {
+        match status {
+            TopUpStatus::Pending => NetworkTransactionStatus::Pending,
+            TopUpStatus::Processing => NetworkTransactionStatus::Processing,
+            TopUpStatus::Completed => NetworkTransactionStatus::Completed,
+            TopUpStatus::Failed => NetworkTransactionStatus::Failed,
+            TopUpStatus::Expired => NetworkTransactionStatus::Expired,
+        }
+    }
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub struct NetworkTransaction {
+    pub id: String,
+    pub transaction_type: NetworkTransactionType,
+    pub from_user: Option<Principal>,
+    pub to_user: Option<Principal>,
+    pub amount: u64,
+    pub fiat_amount: f64,
+    pub fiat_currency: String,
+    pub icp_amount: u64,
+    pub timestamp: u64,
+    pub status: NetworkTransactionStatus,
+    pub reference_id: String,
+    pub transaction_hash: Option<String>,
+    pub fee: Option<u64>,
+    pub description: String,
+}

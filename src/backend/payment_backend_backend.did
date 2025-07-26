@@ -274,6 +274,38 @@ type WalletIdentityResult = record {
   access_count : nat64;
 };
 
+type NetworkTransactionType = variant {
+  Payment;
+  Topup;
+  Withdrawal;
+  Fee;
+};
+
+type NetworkTransactionStatus = variant {
+  Pending;
+  Processing;
+  Completed;
+  Failed;
+  Expired;
+};
+
+type NetworkTransaction = record {
+  id : text;
+  transaction_type : NetworkTransactionType;
+  from_user : opt principal;
+  to_user : opt principal;
+  amount : nat64;
+  fiat_amount : float64;
+  fiat_currency : text;
+  icp_amount : nat64;
+  timestamp : nat64;
+  status : NetworkTransactionStatus;
+  reference_id : text;
+  transaction_hash : opt text;
+  fee : opt nat64;
+  description : text;
+};
+
 type Result = variant { Ok : User; Err : text };
 type Result_1 = variant { Ok : ExchangeRate; Err : text };
 type Result_2 = variant { Ok : QRCode; Err : text };
@@ -322,6 +354,7 @@ service : {
   get_user_transaction_summaries : () -> (vec TransactionSummary) query;
   get_recent_transactions_public : () -> (vec Transaction) query;
   get_network_stats : () -> (NetworkStats) query;
+  get_all_network_transactions : () -> (vec NetworkTransaction) query;
   get_all_transactions : () -> (vec Transaction) query;
   
   // System management
