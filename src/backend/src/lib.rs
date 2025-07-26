@@ -10,6 +10,9 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use ic_cdk::api::time;
 
+use sha2::{Sha256, Digest};
+use base64;
+
 mod types;
 mod rates;
 mod qr;
@@ -27,6 +30,7 @@ type UserStore = StableBTreeMap<Principal, User, Memory>;
 type TransactionStore = StableBTreeMap<String, Transaction, Memory>;
 type QRStore = StableBTreeMap<String, QRCode, Memory>;
 type TopUpStore = StableBTreeMap<String, TopUpTransaction, Memory>;
+type WalletIdentityStore = StableBTreeMap<String, EncryptedWalletIdentity, Memory>;
 
 thread_local! {
     static MEMORY_MANAGER: RefCell<MemoryManager<DefaultMemoryImpl>> = RefCell::new(
@@ -64,9 +68,51 @@ thread_local! {
     static USER_SESSIONS: RefCell<StableBTreeMap<String, UserSession, Memory>> = RefCell::new(
         StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(7))))
     );
+
+
+    static WALLET_IDENTITIES: RefCell<WalletIdentityStore> = RefCell::new(
+        StableBTreeMap::init(MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(8))))
+    );
     
     static EXCHANGE_RATES: RefCell<HashMap<String, ExchangeRate>> = RefCell::new(HashMap::new());
 
+}
+
+fn simple_encrypt(data: &str, password: &str) -> String {
+    // Simple XOR encryption with password hash for MVP
+    // In production, use proper encryption like AES
+    let mut hasher = Sha256::new();
+    hasher.update(password.as_bytes());
+    let key = hasher.finalize();
+    
+    let data_bytes = data.as_bytes();
+    let mut encrypted = Vec::new();
+    
+    for (i, byte) in data_bytes.iter().enumerate() {
+        let key_byte = key[i % 32];
+        encrypted.push(byte ^ key_byte);
+    }
+    
+    base64::encode(encrypted)
+}
+
+fn simple_decrypt(encrypted_data: &str, password: &str) -> Result<String, String> {
+    let encrypted_bytes = base64::decode(encrypted_data)
+        .map_err(|_| "Invalid encrypted data format".to_string())?;
+    
+    let mut hasher = Sha256::new();
+    hasher.update(password.as_bytes());
+    let key = hasher.finalize();
+    
+    let mut decrypted = Vec::new();
+    
+    for (i, byte) in encrypted_bytes.iter().enumerate() {
+        let key_byte = key[i % 32];
+        decrypted.push(byte ^ key_byte);
+    }
+    
+    String::from_utf8(decrypted)
+        .map_err(|_| "Failed to decrypt data".to_string())
 }
 
 fn generate_balance_log_id() -> String {
@@ -169,6 +215,151 @@ fn is_qr_already_used(qr_id: &str) -> bool {
 
 #[update]
 #[candid_method(update)]
+async fn save_wallet_identity_by_email(
+    email: String,
+    secret_key_hex: String,
+    password: String,
+    wallet_name: String,
+) -> Result<String, String> {
+    // Validate inputs
+    if email.is_empty() || !email.contains('@') {
+        return Err("Valid email is required".to_string());
+    }
+    
+    if secret_key_hex.is_empty() {
+        return Err("Secret key is required".to_string());
+    }
+    
+    if password.len() < 6 {
+        return Err("Password must be at least 6 characters".to_string());
+    }
+    
+    // Check if email already has a wallet identity stored
+    let email_lower = email.to_lowercase();
+    let existing = WALLET_IDENTITIES.with(|identities| {
+        identities.borrow().get(&email_lower)
+    });
+    
+    if existing.is_some() {
+        return Err("Wallet identity already exists for this email".to_string());
+    }
+    
+    // Encrypt the secret key with password
+    let encrypted_secret = simple_encrypt(&secret_key_hex, &password);
+    
+    // Create wallet identity record
+    let wallet_identity = EncryptedWalletIdentity {
+        email: email_lower.clone(),
+        encrypted_secret_key: encrypted_secret,
+        wallet_name,
+        created_at: time(),
+        last_accessed: time(),
+        access_count: 0,
+    };
+    
+    // Store in backend
+    WALLET_IDENTITIES.with(|identities| {
+        identities.borrow_mut().insert(email_lower.clone(), wallet_identity);
+    });
+    
+    ic_cdk::println!("🔐 Wallet identity saved for email: {}", email);
+    Ok("Wallet identity saved successfully".to_string())
+}
+
+#[update]
+#[candid_method(update)]
+async fn get_wallet_identity_by_email(
+    email: String,
+    password: String,
+) -> Result<WalletIdentityResult, String> {
+    // Validate inputs
+    if email.is_empty() || !email.contains('@') {
+        return Err("Valid email is required".to_string());
+    }
+    
+    if password.is_empty() {
+        return Err("Password is required".to_string());
+    }
+    
+    let email_lower = email.to_lowercase();
+    
+    // Get stored wallet identity
+    let mut wallet_identity = WALLET_IDENTITIES.with(|identities| {
+        identities.borrow().get(&email_lower)
+    }).ok_or("No wallet found for this email")?;
+    
+    // Try to decrypt secret key with provided password
+    let secret_key_hex = simple_decrypt(&wallet_identity.encrypted_secret_key, &password)
+        .map_err(|_| "Invalid password")?;
+    
+    // Update access info
+    wallet_identity.last_accessed = time();
+    wallet_identity.access_count += 1;
+    
+    WALLET_IDENTITIES.with(|identities| {
+        identities.borrow_mut().insert(email_lower.clone(), wallet_identity.clone());
+    });
+    
+    ic_cdk::println!("🔓 Wallet identity retrieved for email: {} (access count: {})", 
+        email, wallet_identity.access_count);
+    
+    Ok(WalletIdentityResult {
+        secret_key_hex,
+        wallet_name: wallet_identity.wallet_name,
+        created_at: wallet_identity.created_at,
+        last_accessed: wallet_identity.last_accessed,
+        access_count: wallet_identity.access_count,
+    })
+}
+
+#[query]
+#[candid_method(query)]
+fn check_wallet_identity_exists(email: String) -> bool {
+    let email_lower = email.to_lowercase();
+    WALLET_IDENTITIES.with(|identities| {
+        identities.borrow().contains_key(&email_lower)
+    })
+}
+
+#[update]
+#[candid_method(update)]
+async fn update_wallet_identity_password(
+    email: String,
+    old_password: String,
+    new_password: String,
+) -> Result<String, String> {
+    if new_password.len() < 6 {
+        return Err("New password must be at least 6 characters".to_string());
+    }
+    
+    let email_lower = email.to_lowercase();
+    
+    // Get existing wallet identity
+    let mut wallet_identity = WALLET_IDENTITIES.with(|identities| {
+        identities.borrow().get(&email_lower)
+    }).ok_or("No wallet found for this email")?;
+    
+    // Decrypt with old password to verify
+    let secret_key_hex = simple_decrypt(&wallet_identity.encrypted_secret_key, &old_password)
+        .map_err(|_| "Invalid old password")?;
+    
+    // Re-encrypt with new password
+    let new_encrypted_secret = simple_encrypt(&secret_key_hex, &new_password);
+    
+    // Update wallet identity
+    wallet_identity.encrypted_secret_key = new_encrypted_secret;
+    wallet_identity.last_accessed = time();
+    
+    WALLET_IDENTITIES.with(|identities| {
+        identities.borrow_mut().insert(email_lower.clone(), wallet_identity);
+    });
+    
+    ic_cdk::println!("🔄 Password updated for email: {}", email);
+    Ok("Password updated successfully".to_string())
+}
+
+#[update]
+#[candid_method(update)]
 async fn register_user_by_email(
     email: String,
     username: Option<String>,
@@ -231,11 +422,50 @@ fn check_email_availability(email: String) -> bool {
 #[query]
 #[candid_method(query)]
 fn get_user_by_email(email: String) -> Option<User> {
-    USERS.with(|users| {
-        users.borrow().iter()
-            .find(|(_, user)| user.email.as_ref() == Some(&email))
+    ic_cdk::println!("🔍 DEBUG: Searching for email: {}", email);
+    
+    let result = USERS.with(|users| {
+        let users_borrow = users.borrow();
+        let total_users = users_borrow.len();
+        
+        ic_cdk::println!("📊 DEBUG: Total users in storage: {}", total_users);
+        
+        // Debug: Print all users
+        for (principal, user) in users_borrow.iter() {
+            ic_cdk::println!("👤 DEBUG: User {} - email: {:?}", 
+                principal.to_text(), user.email);
+        }
+        
+        // Find user by email
+        users_borrow.iter()
+            .find(|(_, user)| {
+                let matches = user.email.as_ref() == Some(&email);
+                ic_cdk::println!("🔍 DEBUG: Checking user email {:?} == {} ? {}", 
+                    user.email, email, matches);
+                matches
+            })
             .map(|(_, user)| user.clone())
+    });
+    
+    ic_cdk::println!("📋 DEBUG: Search result for {}: {:?}", email, result.is_some());
+    result
+}
+
+#[query]
+#[candid_method(query)]
+fn debug_get_all_users() -> Vec<(String, User)> {
+    USERS.with(|users| {
+        users.borrow()
+            .iter()
+            .map(|(principal, user)| (principal.to_text(), user.clone()))
+            .collect()
     })
+}
+
+#[query]
+#[candid_method(query)]
+fn debug_get_user_count() -> u64 {
+    USERS.with(|users| users.borrow().len() as u64)
 }
 
 #[update]

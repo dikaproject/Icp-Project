@@ -40,7 +40,10 @@ export const ICPProvider = ({ children }) => {
     try {
       setError(null)
       
-      // Check if we have a current session
+      // Create anonymous actor first for wallet operations
+      await createActorConnection()
+      
+      // Then check if we have a current session
       const currentSession = localStorage.getItem('icp_current_session')
       
       if (currentSession) {
@@ -64,11 +67,7 @@ export const ICPProvider = ({ children }) => {
           console.warn('Failed to restore session, clearing stored data')
           localStorage.removeItem('icp_current_session')
           localStorage.removeItem('icp_auth_state')
-          await createActorConnection()
         }
-      } else {
-        // Create anonymous actor for initial connection
-        await createActorConnection()
       }
     } catch (err) {
       console.error('Auth initialization error:', err)
@@ -587,21 +586,22 @@ export const ICPProvider = ({ children }) => {
       
       {/* Wallet Manager Modal */}
       {showWalletModal && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-    <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col">
-      <button
-        onClick={() => setShowWalletModal(false)}
-        className="absolute -top-10 right-0 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-100 z-10"
-      >
-        ✕
-      </button>
-      <WalletManager
-        onWalletConnect={handleWalletConnect}
-        onWalletCreate={handleWalletCreate}
-      />
-    </div>
-  </div>
-)}
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <button
+              onClick={() => setShowWalletModal(false)}
+              className="absolute -top-10 right-0 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-100 z-10"
+            >
+              ✕
+            </button>
+            <WalletManager
+              onWalletConnect={handleWalletConnect}
+              onWalletCreate={handleWalletCreate}
+              backend={backend}
+            />
+          </div>
+        </div>
+      )}
     </ICPContext.Provider>
   )
 }

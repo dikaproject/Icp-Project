@@ -379,3 +379,37 @@ pub struct CardDataInput {
     pub cvv: String,
     pub cardholder_name: String,
 }
+
+#[derive(candid::CandidType, serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct EncryptedWalletIdentity {
+    pub email: String,
+    pub encrypted_secret_key: String,
+    pub wallet_name: String,
+    pub created_at: u64,
+    pub last_accessed: u64,
+    pub access_count: u64,
+}
+
+impl Storable for EncryptedWalletIdentity {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        Cow::Owned(candid::encode_one(self).unwrap())
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        candid::decode_one(&bytes).unwrap()
+    }
+
+    const BOUND: Bound = Bound::Bounded {
+        max_size: 2048, // Increase size for encrypted data
+        is_fixed_size: false,
+    };
+}
+
+#[derive(candid::CandidType, serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct WalletIdentityResult {
+    pub secret_key_hex: String,
+    pub wallet_name: String,
+    pub created_at: u64,
+    pub last_accessed: u64,
+    pub access_count: u64,
+}

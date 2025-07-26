@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { Ed25519KeyIdentity } from '@dfinity/identity'
-import { Wallet, Eye, EyeOff, Mail, AlertCircle, CheckCircle, RefreshCw, User, Lock } from 'lucide-react'
+import { Wallet, Eye, EyeOff, Mail, AlertCircle, CheckCircle, RefreshCw, User, Lock, Loader } from 'lucide-react'
 
-const WalletManager = ({ onWalletConnect, onWalletCreate }) => {
+const WalletManager = ({ onWalletConnect, onWalletCreate, backend }) => {
   const [mode, setMode] = useState('login')
   const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
@@ -10,32 +10,185 @@ const WalletManager = ({ onWalletConnect, onWalletCreate }) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [savedSessions, setSavedSessions] = useState([])
   const [showPassword, setShowPassword] = useState(false)
+  const [checkingWallet, setCheckingWallet] = useState(false)
 
-  useEffect(() => {
-    loadSavedSessions()
-  }, [])
+  // Helper function to convert secret key to hex
+  const secretKeyToHex = (secretKey) => {
+    return Array.from(secretKey).map(b => b.toString(16).padStart(2, '0')).join('')
+  }
 
-  const loadSavedSessions = () => {
-    const saved = localStorage.getItem('arta_sessions')
-    if (saved) {
-      try {
-        setSavedSessions(JSON.parse(saved))
-      } catch (err) {
-        console.error('Error loading saved sessions:', err)
-        setSavedSessions([])
-      }
+  // Helper function to convert hex to secret key
+  const hexToSecretKey = (hex) => {
+    const bytes = []
+    for (let i = 0; i < hex.length; i += 2) {
+      bytes.push(parseInt(hex.substr(i, 2), 16))
+    }
+    return new Uint8Array(bytes)
+  }
+
+  // ENHANCED: Check if wallet exists with better debugging
+  const checkWalletExists = async (email) => {
+    if (!backend) return false
+    
+    try {
+      setCheckingWallet(true)
+      
+      console.log('🔍 DEBUG: Starting wallet check for:', email)
+      
+      // Check both wallet identity storage AND user storage
+      const walletIdentityExists = await backend.checkWalletIdentityExists(email)
+      console.log('🔐 DEBUG: Wallet identity exists:', walletIdentityExists)
+      
+      const userByEmailResult = await backend.getUserByEmail(email)
+      console.log('👤 DEBUG: User by email result:', userByEmailResult)
+      
+      // FIXED: Properly check if user exists
+      // getUserByEmail returns null/undefined if not found, or [] if found but empty, or User object
+      const userByEmailExists = userByEmailResult && 
+                               userByEmailResult !== null && 
+                               userByEmailResult !== undefined &&
+                               (Array.isArray(userByEmailResult) ? userByEmailResult.length > 0 : true)
+      
+      console.log('🔍 Wallet check results:', {
+        email,
+        walletIdentityExists,
+        userByEmailExists,
+        userByEmailData: userByEmailResult
+      })
+      
+      // Return true if either exists
+      return walletIdentityExists || userByEmailExists
+    } catch (err) {
+      console.error('Error checking wallet:', err)
+      return false
+    } finally {
+      setCheckingWallet(false)
     }
   }
 
-  // SIMPLE: Generate identity (random each time, but store mapping)
-  const generateIdentity = () => {
-    return Ed25519KeyIdentity.generate()
+  // FIXED: Save wallet identity to backend - ensure both storages are used
+  const saveWalletToBackend = async (email, identity, password, walletName) => {
+    if (!backend) {
+      console.warn('Backend not available, skipping wallet save')
+      return true
+    }
+
+    try {
+      const secretKey = identity.getKeyPair().secretKey
+      const secretKeyHex = secretKeyToHex(secretKey)
+      
+      console.log('🔐 Saving wallet identity to backend for:', email)
+      
+      // Use service method instead of direct actor call
+      const result = await backend.saveWalletIdentityByEmail(
+        email,
+        secretKeyHex,
+        password,
+        walletName
+      )
+      
+      if (result.Ok) {
+        console.log('✅ Wallet identity saved to backend')
+        return true
+      } else {
+        console.error('❌ Failed to save wallet to backend:', result.Err)
+        
+        // If wallet identity already exists, that's ok - continue
+        if (result.Err.includes('already exists')) {
+          console.log('⚠️ Wallet identity already exists, continuing...')
+          return true
+        }
+        
+        return false
+      }
+    } catch (err) {
+      console.error('Error saving wallet to backend:', err)
+      return false
+    }
   }
 
-  // SIMPLE: Save session with email mapping
-  const saveSession = (email, identity, username, password) => {
+  // FIXED: Restore wallet identity - try multiple sources
+  const restoreWalletFromBackend = async (email, password) => {
+    if (!backend) {
+      throw new Error('Backend not available')
+    }
+
+    try {
+      console.log('🔄 Restoring wallet from backend for:', email)
+      
+      // First, try wallet identity storage using service method
+      try {
+        const result = await backend.getWalletIdentityByEmail(email, password)
+        
+        if (result.Ok) {
+          const { secret_key_hex, wallet_name } = result.Ok
+          
+          // Restore identity from secret key
+          const secretKey = hexToSecretKey(secret_key_hex)
+          const identity = Ed25519KeyIdentity.fromSecretKey(secretKey)
+          
+          console.log('✅ Wallet identity restored from wallet storage')
+          console.log('🆔 Principal:', identity.getPrincipal().toString())
+          
+          return { identity, walletName: wallet_name }
+        }
+      } catch (walletError) {
+        console.log('⚠️ Wallet identity storage failed:', walletError.message)
+      }
+      
+      // Second, try to find user by email and generate new identity
+      try {
+        const userByEmailResult = await backend.getUserByEmail(email)
+        
+        // FIXED: Properly check if user exists
+        const userExists = userByEmailResult && 
+                          userByEmailResult !== null && 
+                          userByEmailResult !== undefined &&
+                          (Array.isArray(userByEmailResult) ? userByEmailResult.length > 0 : true)
+        
+        if (userExists) {
+          console.log('👤 Found user by email, but no wallet identity stored')
+          
+          // Extract user data properly
+          const userData = Array.isArray(userByEmailResult) ? userByEmailResult[0] : userByEmailResult
+          
+          // For existing users without wallet identity, we need to create new identity
+          // This is a migration scenario
+          const newIdentity = Ed25519KeyIdentity.generate()
+          const secretKey = newIdentity.getKeyPair().secretKey
+          const secretKeyHex = secretKeyToHex(secretKey)
+          
+          // Save the new identity for future use
+          const saveResult = await backend.saveWalletIdentityByEmail(
+            email,
+            secretKeyHex,
+            password,
+            userData.username || 'User'
+          )
+          
+          if (saveResult.Ok) {
+            console.log('✅ New wallet identity created and saved for existing user')
+            return { 
+              identity: newIdentity, 
+              walletName: userData.username || 'User' 
+            }
+          }
+        }
+      } catch (userError) {
+        console.log('⚠️ User lookup failed:', userError.message)
+      }
+      
+      throw new Error('No wallet found for this email')
+      
+    } catch (err) {
+      console.error('Error restoring wallet from backend:', err)
+      throw err
+    }
+  }
+
+  // Save session locally (as backup)
+  const saveSessionLocally = (email, identity, username, password) => {
     const sessionData = {
       id: Date.now().toString(),
       email,
@@ -43,17 +196,10 @@ const WalletManager = ({ onWalletConnect, onWalletCreate }) => {
       principal: identity.getPrincipal().toString(),
       walletAddress: `icp_${identity.getPrincipal().toString().slice(0, 17)}`,
       privateKey: Array.from(identity.getKeyPair().secretKey),
-      password: password, // Store password (in production, hash this)
+      password: password,
       created: new Date().toISOString(),
       lastLogin: new Date().toISOString()
     }
-    
-    // Remove existing session with same email
-    const existing = savedSessions.filter(s => s.email !== email)
-    const updated = [...existing, sessionData]
-    
-    localStorage.setItem('arta_sessions', JSON.stringify(updated))
-    setSavedSessions(updated)
     
     // Store current session
     localStorage.setItem('icp_current_session', JSON.stringify({
@@ -66,23 +212,7 @@ const WalletManager = ({ onWalletConnect, onWalletCreate }) => {
     return sessionData
   }
 
-  // SIMPLE: Find session by email
-  const findSessionByEmail = (email) => {
-    return savedSessions.find(s => s.email === email)
-  }
-
-  // SIMPLE: Clear all sessions
-  const clearAllSessions = () => {
-    if (!confirm('Delete ALL sessions? This cannot be undone!')) return
-    
-    localStorage.removeItem('arta_sessions')
-    localStorage.removeItem('icp_current_session')
-    localStorage.removeItem('icp_auth_state')
-    setSavedSessions([])
-    setSuccess('All sessions cleared!')
-  }
-
-  // SIMPLE: Create account
+  // UPDATED: Create account with better error handling
   const handleCreateAccount = async (e) => {
     e.preventDefault()
     
@@ -101,32 +231,39 @@ const WalletManager = ({ onWalletConnect, onWalletCreate }) => {
       return
     }
 
-    // Check if email already exists
-    const existingSession = findSessionByEmail(email)
-    if (existingSession) {
-      setError('Email already registered. Please use login instead.')
-      return
-    }
-
     setLoading(true)
     setError('')
 
     try {
+      // Check if wallet already exists
+      const walletExists = await checkWalletExists(email)
+      if (walletExists) {
+        setError('Email already has a wallet. Please use login instead.')
+        return
+      }
+
       // Generate new identity
-      const identity = generateIdentity()
+      const identity = Ed25519KeyIdentity.generate()
       const principal = identity.getPrincipal().toString()
       
       console.log('🔄 Creating account with email:', email)
       console.log('🆔 Generated Principal:', principal)
       
-      // Save session locally first
-      const sessionData = saveSession(email, identity, username, password)
+      // Save to backend first
+      const backendSaved = await saveWalletToBackend(email, identity, password, username)
       
-      setSuccess('Account created successfully! Connecting...')
-      
-      setTimeout(() => {
-        onWalletCreate(identity, username, null, { email, sessionData })
-      }, 1000)
+      if (backendSaved) {
+        // Save locally as backup
+        const sessionData = saveSessionLocally(email, identity, username, password)
+        
+        setSuccess('Account created successfully! Connecting...')
+        
+        setTimeout(() => {
+          onWalletCreate(identity, username, null, { email, sessionData })
+        }, 1000)
+      } else {
+        setError('Failed to save wallet securely. Please try again.')
+      }
       
     } catch (err) {
       setError('Failed to create account: ' + err.message)
@@ -135,7 +272,7 @@ const WalletManager = ({ onWalletConnect, onWalletCreate }) => {
     }
   }
 
-  // UPDATED: Login with email and password
+  // UPDATED: Login with better fallback handling
   const handleLogin = async (e) => {
     e.preventDefault()
     
@@ -153,45 +290,45 @@ const WalletManager = ({ onWalletConnect, onWalletCreate }) => {
     setError('')
 
     try {
-      // Find session by email
-      const session = findSessionByEmail(email)
+      console.log('🔐 Attempting login for:', email)
       
-      if (!session) {
-        setError('Account not found. Please register first.')
+      // Check if any form of wallet/user exists
+      const walletExists = await checkWalletExists(email)
+      
+      if (!walletExists) {
+        setError('No account found for this email. Please register first.')
         setLoading(false)
         return
       }
 
-      // Check password
-      if (session.password !== password) {
-        setError('Invalid password')
-        setLoading(false)
-        return
-      }
+      console.log('✅ Account found, attempting to restore wallet...')
 
-      // Restore identity from stored private key
-      const identity = Ed25519KeyIdentity.fromSecretKey(new Uint8Array(session.privateKey))
-      
-      // Update last login
-      const updatedSession = { ...session, lastLogin: new Date().toISOString() }
-      const updatedSessions = savedSessions.map(s => s.id === session.id ? updatedSession : s)
-      localStorage.setItem('arta_sessions', JSON.stringify(updatedSessions))
-      setSavedSessions(updatedSessions)
-      
-      // Store current session
-      localStorage.setItem('icp_current_session', JSON.stringify({
-        principal: session.principal,
-        walletName: session.username,
-        privateKey: session.privateKey,
-        email: session.email
-      }))
-      
-      setSuccess('Login successful!')
-      setTimeout(() => {
-        onWalletConnect(identity, session.username)
-      }, 1000)
+      // Try to restore from backend with fallback handling
+      try {
+        const { identity, walletName } = await restoreWalletFromBackend(email, password)
+        
+        // Save session locally for faster future access
+        saveSessionLocally(email, identity, walletName, password)
+        
+        setSuccess('Login successful!')
+        setTimeout(() => {
+          onWalletConnect(identity, walletName)
+        }, 1000)
+        
+      } catch (backendError) {
+        console.error('Backend restore failed:', backendError)
+        
+        if (backendError.message.includes('Invalid password')) {
+          setError('Invalid password')
+        } else if (backendError.message.includes('No wallet found')) {
+          setError('Account found but wallet access failed. Please try registering again.')
+        } else {
+          setError('Login failed: ' + backendError.message)
+        }
+      }
       
     } catch (err) {
+      console.error('Login error:', err)
       setError('Login failed: ' + err.message)
     } finally {
       setLoading(false)
@@ -216,7 +353,7 @@ const WalletManager = ({ onWalletConnect, onWalletCreate }) => {
             <Wallet className="w-6 h-6 text-white" />
           </div>
           <h2 className="text-xl font-bold text-gray-900">Arta Wallet</h2>
-          <p className="text-sm text-gray-600">Email-Based ICP Authentication</p>
+          <p className="text-sm text-gray-600">Cross-Device ICP Authentication</p>
         </div>
 
         {/* Mode Tabs */}
@@ -265,6 +402,9 @@ const WalletManager = ({ onWalletConnect, onWalletCreate }) => {
                   required
                 />
                 <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                {checkingWallet && (
+                  <Loader className="w-4 h-4 text-indigo-600 animate-spin absolute right-3 top-1/2 transform -translate-y-1/2" />
+                )}
               </div>
             </div>
 
@@ -292,30 +432,9 @@ const WalletManager = ({ onWalletConnect, onWalletCreate }) => {
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <p className="text-xs text-blue-700">
-                💡 Enter the email and password you used to register your account.
+                🔐 Your wallet identity is securely stored and can be accessed from any device with your email and password.
               </p>
             </div>
-
-            {/* Show saved accounts info */}
-            {savedSessions.length > 0 && (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-medium text-gray-700">Saved Accounts:</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {savedSessions.map(s => s.email).join(', ')}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={clearAllSessions}
-                    className="text-xs text-red-600 hover:text-red-800"
-                  >
-                    Clear All
-                  </button>
-                </div>
-              </div>
-            )}
           </form>
         )}
 
@@ -336,6 +455,9 @@ const WalletManager = ({ onWalletConnect, onWalletCreate }) => {
                   required
                 />
                 <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                {checkingWallet && (
+                  <Loader className="w-4 h-4 text-indigo-600 animate-spin absolute right-3 top-1/2 transform -translate-y-1/2" />
+                )}
               </div>
             </div>
 
@@ -377,10 +499,9 @@ const WalletManager = ({ onWalletConnect, onWalletCreate }) => {
               </div>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-xs text-blue-700">
-                🔐 Your wallet will be automatically generated and linked to your email.
-                Each email can only have one account.
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <p className="text-xs text-green-700">
+                🌐 Your wallet will be securely stored and accessible from any device. Same email can only register once.
               </p>
             </div>
           </form>
