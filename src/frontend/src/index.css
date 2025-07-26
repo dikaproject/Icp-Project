@@ -1,5 +1,48 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
+/* Aeonik Font Faces */
+@font-face {
+  font-family: 'Aeonik';
+  src: url('./aeonik-trial/aeoniktrial-light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Aeonik';
+  src: url('./aeonik-trial/aeoniktrial-lightitalic.otf') format('opentype');
+  font-weight: 300;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Aeonik';
+  src: url('./aeonik-trial/aeoniktrial-regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Aeonik';
+  src: url('./aeonik-trial/aeoniktrial-regularitalic.otf') format('opentype');
+  font-weight: 400;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Aeonik';
+  src: url('./aeonik-trial/aeoniktrial-bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Aeonik';
+  src: url('./aeonik-trial/aeoniktrial-bolditalic.otf') format('opentype');
+  font-weight: 700;
+  font-style: italic;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -12,6 +55,10 @@
   body {
     @apply bg-slate-50 text-slate-900;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  
+  .font-aeonik {
+    font-family: 'Aeonik', 'Inter', system-ui, -apple-system, sans-serif;
   }
 }
 
@@ -31,6 +78,18 @@
   .btn-icp {
     @apply bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500;
   }
+
+  .btn-landing {
+    @apply px-8 py-4 rounded-2xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-offset-2;
+  }
+
+  .btn-landing-primary {
+    @apply bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 focus:ring-purple-500 shadow-lg hover:shadow-xl;
+  }
+
+  .btn-landing-secondary {
+    @apply bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 focus:ring-white/50;
+  }
   
   .card {
     @apply bg-white rounded-xl shadow-sm border border-slate-200 p-6;
@@ -43,4 +102,76 @@
   .label {
     @apply block text-sm font-medium text-slate-700 mb-2;
   }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 bg-clip-text text-transparent;
+  }
+
+  .hero-glow {
+    background: radial-gradient(circle at center, rgba(147, 51, 234, 0.3) 0%, rgba(59, 130, 246, 0.2) 50%, transparent 70%);
+  }
+}
+
+/* Custom animations */
+@layer utilities {
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite alternate;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.8s ease-out forwards;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 1s ease-out forwards;
+  }
+
+  .animate-portal-rotate {
+    animation: portalRotate 60s linear infinite;
+  }
+
+  .animate-portal-pulse {
+    animation: portalPulse 4s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes glow {
+  from { box-shadow: 0 0 20px rgba(147, 51, 234, 0.5); }
+  to { box-shadow: 0 0 30px rgba(59, 130, 246, 0.8); }
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0; 
+    transform: translateY(30px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Portal animations for landing page */
+@keyframes portalRotate {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@keyframes portalPulse {
+  0% { transform: translate(-50%, -50%) scale(1); }
+  100% { transform: translate(-50%, -50%) scale(1.05); }
 }
