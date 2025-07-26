@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { useICP } from '../contexts/ICPContext.jsx'
-import { 
-  History, 
-  ArrowUpRight, 
-  ArrowDownRight, 
-  RefreshCw, 
+import {
+  History,
+  ArrowUpRight,
+  ArrowDownRight,
+  RefreshCw,
   Filter,
   Search,
   CreditCard,
@@ -28,24 +28,99 @@ const TransactionHistory = () => {
   const [typeFilter, setTypeFilter] = useState('')
   const [viewMode, setViewMode] = useState('transactions') // 'transactions', 'topups', 'balance'
 
+  // ADD: Helper function to get status text from Candid variant
+  const getStatusText = (status) => {
+    // Handle Candid variant object
+    if (typeof status === 'object' && status !== null) {
+      const key = Object.keys(status)[0]
+      switch (key) {
+        case 'Pending':
+          return 'Pending'
+        case 'Processing':
+          return 'Processing'
+        case 'Completed':
+          return 'Completed'
+        case 'Failed':
+          return 'Failed'
+        case 'Expired':
+          return 'Expired'
+        case 'QRIS':
+          return 'QRIS'
+        case 'CreditCard':
+          return 'Credit Card'
+        case 'DebitCard':
+          return 'Debit Card'
+        case 'Web3Wallet':
+          return 'Web3 Wallet'
+        default:
+          return key
+      }
+    }
+
+    // Handle string (fallback)
+    switch (status) {
+      case 'Pending':
+        return 'Pending'
+      case 'Processing':
+        return 'Processing'
+      case 'Completed':
+        return 'Completed'
+      case 'Failed':
+        return 'Failed'
+      case 'Expired':
+        return 'Expired'
+      case 'QRIS':
+        return 'QRIS'
+      case 'CreditCard':
+        return 'Credit Card'
+      case 'DebitCard':
+        return 'Debit Card'
+      case 'Web3Wallet':
+        return 'Web3 Wallet'
+      default:
+        return status?.toString() || 'Unknown'
+    }
+  }
+
+  // ADD: Helper function to get status color
+  const getStatusColor = (status) => {
+    // Handle Candid variant object
+    const statusText = getStatusText(status).toLowerCase()
+
+    switch (statusText) {
+      case 'completed':
+        return 'bg-green-100 text-green-800'
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'processing':
+        return 'bg-blue-100 text-blue-800'
+      case 'failed':
+        return 'bg-red-100 text-red-800'
+      case 'expired':
+        return 'bg-gray-100 text-gray-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
+  }
+
   const fetchTransactionHistory = async () => {
     if (!backend) return
-    
+
     try {
       setLoading(true)
-      
+
       // Fetch regular transactions
       const transactionsData = await backend.getUserTransactionSummaries()
       setTransactions(transactionsData)
-      
+
       // Fetch topup history
       const topupsData = await backend.getUserTopupHistory()
       setTopups(topupsData)
-      
+
       // Fetch balance history
       const balanceData = await getUserBalanceHistory()
       setBalanceHistory(balanceData)
-      
+
     } catch (error) {
       console.error('Error fetching transaction history:', error)
     } finally {
@@ -68,13 +143,15 @@ const TransactionHistory = () => {
   }
 
   const getTopupIcon = (method) => {
-    switch (method) {
-      case 'QRIS':
+    const methodText = getStatusText(method).toLowerCase()
+
+    switch (methodText) {
+      case 'qris':
         return <QrCode className="w-5 h-5 text-blue-600" />
-      case 'CreditCard':
-      case 'DebitCard':
+      case 'credit card':
+      case 'debit card':
         return <CreditCard className="w-5 h-5 text-purple-600" />
-      case 'Web3Wallet':
+      case 'web3 wallet':
         return <Wallet className="w-5 h-5 text-indigo-600" />
       default:
         return <Plus className="w-5 h-5 text-gray-600" />
@@ -103,7 +180,7 @@ const TransactionHistory = () => {
           return key
       }
     }
-    
+
     // Handle string (fallback)
     switch (changeType) {
       case 'TopupCompleted':
@@ -126,7 +203,7 @@ const TransactionHistory = () => {
   const getBalanceChangeIcon = (changeType) => {
     // Handle Candid variant object
     const key = typeof changeType === 'object' ? Object.keys(changeType)[0] : changeType
-    
+
     switch (key) {
       case 'TopupCompleted':
         return <TrendingUp className="w-5 h-5 text-green-600" />
@@ -148,7 +225,7 @@ const TransactionHistory = () => {
   const getBalanceChangeColor = (changeType) => {
     // Handle Candid variant object
     const key = typeof changeType === 'object' ? Object.keys(changeType)[0] : changeType
-    
+
     switch (key) {
       case 'TopupCompleted':
       case 'PaymentReceived':
@@ -188,7 +265,7 @@ const TransactionHistory = () => {
   const formatBalanceChange = (changeType, amount) => {
     // Handle Candid variant object
     const key = typeof changeType === 'object' ? Object.keys(changeType)[0] : changeType
-    
+
     const sign = ['TopupCompleted', 'PaymentReceived', 'Refund'].includes(key) ? '+' : '-'
     return `${sign}${formatICP(amount)} ICP`
   }
@@ -199,7 +276,7 @@ const TransactionHistory = () => {
       ...tx,
       type: 'transaction',
       timestamp: tx.timestamp,
-      status_history: transactions.filter(t => t.qr_id === tx.qr_id) 
+      status_history: transactions.filter(t => t.qr_id === tx.qr_id)
     })),
     ...topups.map(topup => ({
       id: topup.id,
@@ -218,10 +295,10 @@ const TransactionHistory = () => {
 
   // Filter balance history
   const filteredBalanceHistory = balanceHistory.filter(item => {
-    const matchesSearch = searchTerm === '' || 
+    const matchesSearch = searchTerm === '' ||
       item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.reference_id.toLowerCase().includes(searchTerm.toLowerCase())
-    
+
     return matchesSearch
   })
 
@@ -238,17 +315,17 @@ const TransactionHistory = () => {
   })
 
   const filteredTransactions = uniqueTransactions.filter(item => {
-    const matchesSearch = searchTerm === '' || 
+    const matchesSearch = searchTerm === '' ||
       item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.currency.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (item.method && item.method.toLowerCase().includes(searchTerm.toLowerCase()))
-    
-    const matchesStatus = statusFilter === '' || 
+
+    const matchesStatus = statusFilter === '' ||
       item.status.toLowerCase() === statusFilter.toLowerCase()
-    
-    const matchesType = typeFilter === '' || 
+
+    const matchesType = typeFilter === '' ||
       item.type === typeFilter
-    
+
     return matchesSearch && matchesStatus && matchesType
   })
 
@@ -296,7 +373,7 @@ const TransactionHistory = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="text-right">
               <div className={`font-medium ${getBalanceChangeColor(log.change_type)}`}>
                 {formatBalanceChange(log.change_type, log.amount)}
@@ -346,31 +423,19 @@ const TransactionHistory = () => {
       <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-6">
         <button
           onClick={() => setViewMode('transactions')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            viewMode === 'transactions' 
-              ? 'bg-white text-blue-600 shadow-sm' 
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'transactions'
+              ? 'bg-white text-blue-600 shadow-sm'
               : 'text-gray-600 hover:text-gray-900'
-          }`}
+            }`}
         >
           Transactions
         </button>
         <button
-          onClick={() => setViewMode('topups')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            viewMode === 'topups' 
-              ? 'bg-white text-blue-600 shadow-sm' 
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Top-ups
-        </button>
-        <button
           onClick={() => setViewMode('balance')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            viewMode === 'balance' 
-              ? 'bg-white text-blue-600 shadow-sm' 
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'balance'
+              ? 'bg-white text-blue-600 shadow-sm'
               : 'text-gray-600 hover:text-gray-900'
-          }`}
+            }`}
         >
           Balance History
         </button>
@@ -391,7 +456,7 @@ const TransactionHistory = () => {
               />
             </div>
           </div>
-          
+
           {viewMode !== 'balance' && (
             <>
               <div className="sm:w-48">
@@ -408,7 +473,7 @@ const TransactionHistory = () => {
                   </select>
                 </div>
               </div>
-              
+
               <div className="sm:w-48">
                 <div className="relative">
                   <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
@@ -467,14 +532,14 @@ const TransactionHistory = () => {
                 {filteredTransactions.map((item) => (
                   <div key={`${item.type}-${item.id}`} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
                     <div className="flex items-center space-x-4">
-                      {item.type === 'transaction' 
+                      {item.type === 'transaction'
                         ? getTransactionIcon(item.is_incoming)
                         : getTopupIcon(item.method)
                       }
                       <div>
                         <div className="flex items-center space-x-2">
                           <span className="font-medium text-slate-900">
-                            {item.type === 'transaction' 
+                            {item.type === 'transaction'
                               ? (item.is_incoming ? 'Received' : 'Sent')
                               : `Top-up via ${item.method}`
                             }
@@ -488,7 +553,7 @@ const TransactionHistory = () => {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center space-x-4">
                       <div className="text-right">
                         <div className="font-medium text-slate-900">
@@ -498,7 +563,7 @@ const TransactionHistory = () => {
                           {item.amount_icp}
                         </div>
                       </div>
-                      
+
                       <div className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(item.status)}`}>
                         {item.status}
                       </div>
@@ -520,21 +585,21 @@ const TransactionHistory = () => {
             </div>
             <div className="text-sm text-slate-600">Received</div>
           </div>
-          
+
           <div className="card text-center">
             <div className="text-2xl font-bold text-red-600">
               {filteredTransactions.filter(tx => tx.type === 'transaction' && !tx.is_incoming).length}
             </div>
             <div className="text-sm text-slate-600">Sent</div>
           </div>
-          
+
           <div className="card text-center">
             <div className="text-2xl font-bold text-blue-600">
               {filteredTransactions.filter(tx => tx.type === 'topup').length}
             </div>
             <div className="text-sm text-slate-600">Top-ups</div>
           </div>
-          
+
           <div className="card text-center">
             <div className="text-2xl font-bold text-purple-600">
               {filteredTransactions.filter(tx => tx.status.toLowerCase() === 'completed').length}

@@ -281,6 +281,38 @@ const EncryptedWalletIdentity = IDL.Record({
     'access_count': IDL.Nat64,
   })
 
+  const NetworkTransactionType = IDL.Variant({
+    'Payment': IDL.Null,
+    'Topup': IDL.Null,
+    'Withdrawal': IDL.Null,
+    'Fee': IDL.Null,
+  })
+
+  const NetworkTransactionStatus = IDL.Variant({
+    'Pending': IDL.Null,
+    'Processing': IDL.Null,
+    'Completed': IDL.Null,
+    'Failed': IDL.Null,
+    'Expired': IDL.Null,
+  })
+
+  const NetworkTransaction = IDL.Record({
+    'id': IDL.Text,
+    'transaction_type': NetworkTransactionType,
+    'from_user': IDL.Opt(IDL.Principal),
+    'to_user': IDL.Opt(IDL.Principal),
+    'amount': IDL.Nat64,
+    'fiat_amount': IDL.Float64,
+    'fiat_currency': IDL.Text,
+    'icp_amount': IDL.Nat64,
+    'timestamp': IDL.Nat64,
+    'status': NetworkTransactionStatus,
+    'reference_id': IDL.Text,
+    'transaction_hash': IDL.Opt(IDL.Text),
+    'fee': IDL.Opt(IDL.Nat64),
+    'description': IDL.Text,
+  })
+
 
 
 
@@ -333,6 +365,7 @@ const EncryptedWalletIdentity = IDL.Record({
     'get_user_topup_history': IDL.Func([], [IDL.Vec(TopUpTransaction)], ['query']),
 
     'get_network_stats': IDL.Func([], [NetworkStats], ['query']),
+    'get_all_network_transactions': IDL.Func([], [IDL.Vec(NetworkTransaction)], ['query']),
     'get_all_transactions': IDL.Func([], [IDL.Vec(Transaction)], ['query']),
 
     // Add new balance history methods
@@ -682,6 +715,17 @@ export class PaymentBackendService {
     } catch (error) {
       console.error('Get topup transaction error:', error)
       return null
+    }
+  }
+
+  async getAllNetworkTransactions() {
+    try {
+      const result = await this.actor.get_all_network_transactions()
+      console.log('🌐 Network transactions fetched:', result?.length || 0)
+      return result || []
+    } catch (error) {
+      console.error('Get all network transactions error:', error)
+      return []
     }
   }
 

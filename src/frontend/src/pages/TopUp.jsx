@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useICP } from '../contexts/ICPContext'
 import QRCode from 'react-qr-code'
+import Flag from 'react-world-flags'
 import { 
   CreditCard, 
   QrCode, 
@@ -11,7 +12,9 @@ import {
   Copy,
   ExternalLink,
   Download,
-  RefreshCw
+  RefreshCw,
+  Construction,
+  Calendar
 } from 'lucide-react'
 
 const TopUp = () => {
@@ -25,15 +28,59 @@ const TopUp = () => {
   const [currentTopup, setCurrentTopup] = useState(null)
   const [balance, setBalance] = useState(null)
   const [qrError, setQrError] = useState(false)
-  
-  // Card form state
-  const [cardData, setCardData] = useState({
-    cardNumber: '',
-    expiryMonth: '',
-    expiryYear: '',
-    cvv: '',
-    cardholderName: ''
-  })
+
+  // UPDATED: Currency list dengan country codes untuk flags
+  const currencies = [
+    { 
+      code: 'IDR', 
+      symbol: 'Rp', 
+      name: 'Indonesian Rupiah',
+      country: 'Indonesia',
+      countryCode: 'ID'
+    },
+    { 
+      code: 'USD', 
+      symbol: '$', 
+      name: 'US Dollar',
+      country: 'United States',
+      countryCode: 'US'
+    },
+    { 
+      code: 'EUR', 
+      symbol: '€', 
+      name: 'Euro',
+      country: 'European Union',
+      countryCode: 'EU'
+    },
+    { 
+      code: 'JPY', 
+      symbol: '¥', 
+      name: 'Japanese Yen',
+      country: 'Japan',
+      countryCode: 'JP'
+    }
+  ]
+
+  // Get currency info helper
+  const getCurrencyInfo = (code) => {
+    return currencies.find(curr => curr.code === code) || currencies[0]
+  }
+
+  // Flag component with styling
+  const FlagIcon = ({ countryCode, size = 24, className = '' }) => (
+    <Flag 
+      code={countryCode} 
+      style={{ 
+        width: size, 
+        height: size * 0.67, 
+        borderRadius: '3px',
+        objectFit: 'cover',
+        border: '1px solid rgba(0,0,0,0.1)',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+      }}
+      className={className}
+    />
+  )
 
   useEffect(() => {
     if (isAuthenticated && backend) {
@@ -72,12 +119,10 @@ const TopUp = () => {
   const extractQRISData = (paymentData) => {
     if (!paymentData || !paymentData.qris_data) return null
     
-    // Check if qris_data is an array with data
     if (Array.isArray(paymentData.qris_data) && paymentData.qris_data.length > 0) {
       return paymentData.qris_data[0]
     }
     
-    // Check if qris_data is directly the object
     if (typeof paymentData.qris_data === 'object' && paymentData.qris_data.qr_code_url) {
       return paymentData.qris_data
     }
@@ -86,97 +131,32 @@ const TopUp = () => {
   }
 
   const handleQRISTopup = async (e) => {
-  e.preventDefault()
-  setLoading(true)
-  setError('')
-  setSuccess('')
-  setQrError(false)
-  setCurrentTopup(null)
-
-  try {
-    console.log('Sending QRIS request:', { amount: parseFloat(amount), currency })
-    const result = await backend.createQRISTopup(parseFloat(amount), currency)
-    console.log('QRIS response received:', result)
-    
-    if (result.Ok) {
-      const convertedTopup = convertBigIntToString(result.Ok)
-      console.log('Converted topup data:', convertedTopup)
-      
-      setCurrentTopup(convertedTopup)
-      setSuccess('QRIS payment created successfully!')
-      setAmount('')
-    } else {
-      console.error('QRIS creation failed:', result.Err)
-      setError(result.Err || 'Failed to create QRIS payment')
-    }
-  } catch (err) {
-    console.error('QRIS topup exception:', err)
-    console.error('Exception type:', typeof err)
-    console.error('Exception details:', {
-      message: err.message,
-      name: err.name,
-      stack: err.stack
-    })
-    setError(err.message || 'Failed to create QRIS payment')
-  } finally {
-    setLoading(false)
-  }
-}
-
-  const handleCardTopup = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
     setSuccess('')
+    setQrError(false)
+    setCurrentTopup(null)
 
     try {
-      const isCredit = activeTab === 'credit'
-      const result = await backend.createCardTopup(
-        parseFloat(amount),
-        currency,
-        cardData,
-        isCredit
-      )
+      console.log('Sending QRIS request:', { amount: parseFloat(amount), currency })
+      const result = await backend.createQRISTopup(parseFloat(amount), currency)
+      console.log('QRIS response received:', result)
       
       if (result.Ok) {
         const convertedTopup = convertBigIntToString(result.Ok)
+        console.log('Converted topup data:', convertedTopup)
+        
         setCurrentTopup(convertedTopup)
-        setSuccess(`${isCredit ? 'Credit' : 'Debit'} card payment processed!`)
-        await fetchBalance()
+        setSuccess('QRIS payment created successfully!')
         setAmount('')
-        setCardData({
-          cardNumber: '',
-          expiryMonth: '',
-          expiryYear: '',
-          cvv: '',
-          cardholderName: ''
-        })
       } else {
-        setError(result.Err)
+        console.error('QRIS creation failed:', result.Err)
+        setError(result.Err || 'Failed to create QRIS payment')
       }
     } catch (err) {
-      setError(err.message || 'Failed to process card payment')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleClaimQRIS = async () => {
-    if (!currentTopup) return
-    
-    setLoading(true)
-    try {
-      const result = await backend.claimQRISPayment(currentTopup.id)
-      if (result.Ok) {
-        const convertedTopup = convertBigIntToString(result.Ok)
-        setCurrentTopup(convertedTopup)
-        setSuccess('QRIS payment claimed successfully!')
-        await fetchBalance()
-      } else {
-        setError(result.Err)
-      }
-    } catch (err) {
-      setError(err.message || 'Failed to claim QRIS payment')
+      console.error('QRIS topup exception:', err)
+      setError(err.message || 'Failed to create QRIS payment')
     } finally {
       setLoading(false)
     }
@@ -234,13 +214,6 @@ const TopUp = () => {
     }
   }
 
-  const currencies = [
-    { code: 'IDR', symbol: 'Rp', name: 'Indonesian Rupiah' },
-    { code: 'USD', symbol: '$', name: 'US Dollar' },
-    { code: 'EUR', symbol: '€', name: 'Euro' },
-    { code: 'JPY', symbol: '¥', name: 'Japanese Yen' }
-  ]
-
   // QR Code Component dengan Error Handling
   const QRCodeWithFallback = ({ value, size = 200 }) => {
     const [hasError, setHasError] = useState(false)
@@ -279,6 +252,21 @@ const TopUp = () => {
       />
     )
   }
+
+  // Coming Soon Component
+  const ComingSoonTab = ({ icon: Icon, title, description }) => (
+    <div className="text-center py-12">
+      <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+        <Construction className="w-8 h-8 text-gray-400" />
+      </div>
+      <h3 className="text-lg font-semibold text-gray-900 mb-2">Coming Soon</h3>
+      <p className="text-gray-600 mb-4">{description}</p>
+      <div className="inline-flex items-center space-x-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-lg">
+        <Calendar className="w-4 h-4" />
+        <span className="text-sm font-medium">Available in next update</span>
+      </div>
+    </div>
+  )
 
   if (!isAuthenticated) {
     return (
@@ -339,45 +327,85 @@ const TopUp = () => {
               >
                 <CreditCard className="w-5 h-5 inline mr-2" />
                 Credit Card
+                <span className="ml-2 px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+                  Soon
+                </span>
+              </button>
+              <button
+                onClick={() => setActiveTab('wallet')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'wallet'
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Wallet className="w-5 h-5 inline mr-2" />
+                Web3 Wallet
+                <span className="ml-2 px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+                  Soon
+                </span>
               </button>
             </nav>
           </div>
 
           <div className="p-6">
-            {/* Amount Input */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Amount
-              </label>
-              <div className="flex space-x-4">
-                <div className="flex-1">
-                  <input
-                    type="number"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    placeholder="Enter amount"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    step="0.01"
-                    min="0"
-                  />
-                </div>
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  {currencies.map(curr => (
-                    <option key={curr.code} value={curr.code}>
-                      {curr.code} ({curr.symbol})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* QRIS Tab */}
+            {/* QRIS Tab - Active */}
             {activeTab === 'qris' && (
               <div>
+                {/* Amount Input with Flag */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Amount
+                  </label>
+                  <div className="flex space-x-4">
+                    <div className="flex-1 relative">
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-600 font-medium">
+                        {getCurrencyInfo(currency).symbol}
+                      </span>
+                      <input
+                        type="number"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        placeholder="Enter amount"
+                        className="w-full pl-8 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        step={currency === 'JPY' || currency === 'IDR' ? '1' : '0.01'}
+                        min="0"
+                      />
+                    </div>
+                    <select
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-[200px]"
+                    >
+                      {currencies.map(curr => (
+                        <option key={curr.code} value={curr.code}>
+                          {curr.code} - {curr.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  {/* Currency Preview with Flag */}
+                  {amount && (
+                    <div className="mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <FlagIcon 
+                          countryCode={getCurrencyInfo(currency).countryCode} 
+                          size={24} 
+                        />
+                        <div>
+                          <div className="font-semibold text-indigo-900">
+                            {getCurrencyInfo(currency).symbol}{parseFloat(amount || 0).toLocaleString()} {currency}
+                          </div>
+                          <div className="text-sm text-indigo-600">
+                            {getCurrencyInfo(currency).country}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <form onSubmit={handleQRISTopup}>
                   <button
                     type="submit"
@@ -433,53 +461,20 @@ const TopUp = () => {
                                   <Copy className="w-4 h-4" />
                                   <span>Copy</span>
                                 </button>
-                                <button
-                                  onClick={() => setQrError(false)}
-                                  className="flex items-center space-x-1 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm"
-                                >
-                                  <RefreshCw className="w-4 h-4" />
-                                  <span>Refresh</span>
-                                </button>
                               </div>
                             </div>
                             
-                            {/* Payment URL */}
-                            <div className="bg-white p-4 rounded-lg border">
-                              <h4 className="font-semibold mb-3">Payment Link</h4>
-                              <div className="flex items-center space-x-2 mb-3">
-                                <code className="bg-gray-100 px-3 py-2 rounded text-sm flex-1 break-all">
-                                  {qrisData.qr_code_url}
-                                </code>
-                                <button
-                                  onClick={() => copyToClipboard(qrisData.qr_code_url)}
-                                  className="p-2 hover:bg-gray-200 rounded"
-                                  title="Copy URL"
-                                >
-                                  <Copy className="w-4 h-4" />
-                                </button>
-                              </div>
-                              
-                              {/* Direct Access Button */}
-                              <div className="text-center">
-                                <a
-                                  href={qrisData.qr_code_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center space-x-2 bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition-colors"
-                                >
-                                  <ExternalLink className="w-5 h-5" />
-                                  <span>Open Payment Page</span>
-                                </a>
-                              </div>
-                            </div>
-                            
-                            {/* Payment Details */}
+                            {/* Payment Details with Flag */}
                             <div className="bg-white p-4 rounded-lg border">
                               <h4 className="font-semibold mb-3">Payment Details</h4>
                               <div className="grid grid-cols-2 gap-3 text-sm">
-                                <div>
+                                <div className="flex items-center space-x-2">
+                                  <FlagIcon 
+                                    countryCode={getCurrencyInfo(currentTopup.fiat_currency).countryCode} 
+                                    size={16} 
+                                  />
                                   <span className="text-gray-600">Amount:</span>
-                                  <span className="font-semibold ml-2">
+                                  <span className="font-semibold">
                                     {formatAmount(currentTopup.fiat_amount).toLocaleString()} {currentTopup.fiat_currency}
                                   </span>
                                 </div>
@@ -507,27 +502,6 @@ const TopUp = () => {
                                 </div>
                               </div>
                             </div>
-                            
-                            {/* Status Actions */}
-                            {getStatusText(currentTopup.status) === 'Pending' && (
-                              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                                <div className="flex items-center space-x-2">
-                                  <Clock className="w-5 h-5 text-yellow-600" />
-                                  <span className="text-yellow-800 font-medium">Waiting for Payment</span>
-                                </div>
-                                <p className="text-yellow-700 text-sm mt-2">
-                                  Complete the payment by scanning the QR code above or clicking the payment link.
-                                </p>
-                              </div>
-                            )}
-                            
-                            {/* Demo Info */}
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                              <p className="text-blue-800 text-sm font-medium">Demo Mode</p>
-                              <p className="text-blue-700 text-xs mt-1">
-                                This QR code contains the payment URL. In production, this would be integrated with actual QRIS payment processors.
-                              </p>
-                            </div>
                           </div>
                         )
                       } else {
@@ -545,6 +519,24 @@ const TopUp = () => {
                   </div>
                 )}
               </div>
+            )}
+
+            {/* Credit Card Tab - Coming Soon */}
+            {activeTab === 'credit' && (
+              <ComingSoonTab
+                icon={CreditCard}
+                title="Credit Card Payment"
+                description="Credit card top-up integration is currently in development. You'll be able to add funds using major credit cards."
+              />
+            )}
+
+            {/* Web3 Wallet Tab - Coming Soon */}
+            {activeTab === 'wallet' && (
+              <ComingSoonTab
+                icon={Wallet}
+                title="Web3 Wallet Integration"
+                description="Direct wallet integration for seamless crypto-to-ICP conversion. Connect your favorite Web3 wallet to top up instantly."
+              />
             )}
           </div>
         </div>

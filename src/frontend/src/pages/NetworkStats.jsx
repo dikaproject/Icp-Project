@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { useICP } from '../contexts/ICPContext'
-import { 
-  Globe, 
-  Activity, 
-  TrendingUp, 
+import {
+  Globe,
+  Activity,
+  TrendingUp,
   Search,
   Filter,
   BarChart3,
@@ -17,13 +17,14 @@ import {
   ExternalLink,
   CheckCircle,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  ArrowUpRight 
 } from 'lucide-react'
 
 const NetworkStats = () => {
   const { backend } = useICP()
   const [networkStats, setNetworkStats] = useState(null)
-  const [allTransactions, setAllTransactions] = useState([]) // Ensure it's always an array
+  const [allTransactions, setAllTransactions] = useState([]) // Network transactions (payments + topups)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedTimeframe, setSelectedTimeframe] = useState('24h')
@@ -47,26 +48,53 @@ const NetworkStats = () => {
     return value || 0
   }
 
-  const convertBigIntInObject = (obj) => {
-    if (!obj) return obj
-    
-    const converted = { ...obj }
-    
-    Object.keys(converted).forEach(key => {
-      if (typeof converted[key] === 'bigint') {
-        converted[key] = Number(converted[key])
-      } else if (Array.isArray(converted[key])) {
-        converted[key] = converted[key].map(item => {
-          if (typeof item === 'object' && item !== null) {
-            return convertBigIntInObject(item)
-          }
-          return typeof item === 'bigint' ? Number(item) : item
-        })
+ const convertBigIntInObject = (obj) => {
+  if (!obj) return obj
+  
+  // FIXED: Handle arrays properly - keep them as arrays!
+  if (Array.isArray(obj)) {
+    return obj.map(item => {
+      if (typeof item === 'bigint') {
+        return Number(item)
+      } else if (typeof item === 'object' && item !== null) {
+        return convertBigIntInObject(item)
       }
+      return item
     })
-    
-    return converted
   }
+  
+  // Handle regular objects
+  if (typeof obj !== 'object' || obj === null) {
+    return typeof obj === 'bigint' ? Number(obj) : obj
+  }
+  
+  const converted = { ...obj }
+  
+  Object.keys(converted).forEach(key => {
+    if (typeof converted[key] === 'bigint') {
+      converted[key] = Number(converted[key])
+    } else if (Array.isArray(converted[key])) {
+      // FIXED: Handle Candid Option types properly
+      if (key === 'fee' || key === 'transaction_hash' || key === 'from_user' || key === 'to_user') {
+        // For Option types: [value] means Some(value), [] means None
+        if (converted[key].length > 0) {
+          const optionValue = converted[key][0]
+          converted[key] = typeof optionValue === 'bigint' ? Number(optionValue) : optionValue
+        } else {
+          converted[key] = null
+        }
+      } else {
+        // For regular arrays, convert each item but keep as array
+        converted[key] = convertBigIntInObject(converted[key])
+      }
+    } else if (typeof converted[key] === 'object' && converted[key] !== null) {
+      // Recursively convert nested objects
+      converted[key] = convertBigIntInObject(converted[key])
+    }
+  })
+  
+  return converted
+}
 
   const fetchNetworkStats = async () => {
     if (!backend) return
@@ -74,10 +102,10 @@ const NetworkStats = () => {
     try {
       setLoading(true)
       setError('')
-      
+
       const stats = await backend.getNetworkStats()
       console.log('Raw network stats:', stats)
-      
+
       if (stats) {
         const convertedStats = convertBigIntInObject(stats)
         console.log('Converted network stats:', convertedStats)
@@ -94,27 +122,42 @@ const NetworkStats = () => {
   }
 
   const fetchAllTransactions = async () => {
-    if (!backend) return
+  if (!backend) return
 
-    try {
-      console.log('Fetching all transactions...')
-      const transactions = await backend.getAllTransactions()
-      console.log('Raw transactions:', transactions)
+  try {
+    console.log('Fetching all network transactions...')
+    
+    const transactions = await backend.getAllNetworkTransactions()
+    console.log('Raw network transactions:', transactions)
+    
+    // FIXED: Ensure we have a proper array
+    if (Array.isArray(transactions)) {
+      const convertedTransactions = convertBigIntInObject(transactions)
+      console.log('Converted network transactions:', convertedTransactions)
       
-      // Validate that transactions is an array
-      if (Array.isArray(transactions)) {
-        const convertedTransactions = convertBigIntInObject(transactions)
-        console.log('Converted transactions:', convertedTransactions)
+      // FIXED: Verify it's still an array after conversion
+      if (Array.isArray(convertedTransactions)) {
         setAllTransactions(convertedTransactions)
+        
+        // Debug: Check first transaction structure
+        if (convertedTransactions.length > 0) {
+          console.log('🔍 First converted transaction:', convertedTransactions[0])
+          console.log('🔍 Status structure:', convertedTransactions[0].status)
+          console.log('🔍 Fee structure:', convertedTransactions[0].fee)
+        }
       } else {
-        console.warn('Transactions is not an array:', transactions)
-        setAllTransactions([]) // Set to empty array if not array
+        console.error('❌ convertBigIntInObject broke the array structure:', convertedTransactions)
+        setAllTransactions([])
       }
-    } catch (err) {
-      console.error('Error fetching all transactions:', err)
-      setAllTransactions([]) // Set to empty array on error
+    } else {
+      console.warn('Network transactions is not an array:', transactions)
+      setAllTransactions([])
     }
+  } catch (err) {
+    console.error('Error fetching all network transactions:', err)
+    setAllTransactions([])
   }
+}
 
   const currencyCountryMap = {
     USD: { name: 'United States', flag: '🇺🇸', region: 'Americas' },
@@ -136,14 +179,14 @@ const NetworkStats = () => {
 
   const formatICP = (amount) => {
     const numAmount = convertBigIntToNumber(amount)
-    if (numAmount === 0) return '0.00000000'
+    if (numAmount === 0 || isNaN(numAmount)) return '0.00000000'
     const icp = numAmount / 100_000_000
     return icp.toFixed(8)
   }
 
   const formatCurrency = (amount, currency) => {
-    const numAmount = convertBigIntToNumber(amount)
-    if (numAmount === 0) return '0.00'
+    const numAmount = typeof amount === 'number' ? amount : convertBigIntToNumber(amount)
+    if (numAmount === 0 || isNaN(numAmount)) return '0.00'
     const symbols = {
       USD: '$', EUR: '€', GBP: '£', JPY: '¥', IDR: 'Rp ',
       SGD: 'S$', MYR: 'RM', PHP: '₱', THB: '฿', VND: '₫',
@@ -153,12 +196,18 @@ const NetworkStats = () => {
     return `${symbol}${numAmount.toLocaleString()}`
   }
 
+
   const formatNumber = (num) => {
     return convertBigIntToNumber(num).toLocaleString()
   }
 
   const getStatusIcon = (status) => {
-    const statusStr = typeof status === 'object' ? Object.keys(status)[0] : status
+    // Handle both old and new status objects
+    let statusStr = status
+    if (typeof status === 'object' && status !== null) {
+      statusStr = Object.keys(status)[0]
+    }
+
     switch (statusStr?.toLowerCase()) {
       case 'completed':
         return <CheckCircle className="w-5 h-5 text-green-500" />
@@ -189,10 +238,29 @@ const NetworkStats = () => {
   }
 
   const getStatusText = (status) => {
-    if (typeof status === 'object') {
+    if (typeof status === 'object' && status !== null) {
       return Object.keys(status)[0]
     }
     return status || 'Unknown'
+  }
+
+  const getTransactionTypeIcon = (type) => {
+    const typeStr = typeof type === 'object' ? Object.keys(type)[0] : type
+    switch (typeStr?.toLowerCase()) {
+      case 'payment':
+        return <ArrowUpRight className="w-4 h-4 text-blue-500" />
+      case 'topup':
+        return <TrendingUp className="w-4 h-4 text-green-500" />
+      default:
+        return <Activity className="w-4 h-4 text-gray-500" />
+    }
+  }
+
+  const getTransactionTypeText = (type) => {
+    if (typeof type === 'object' && type !== null) {
+      return Object.keys(type)[0]
+    }
+    return type || 'Unknown'
   }
 
   const formatDate = (timestamp) => {
@@ -208,24 +276,50 @@ const NetworkStats = () => {
 
   // Safe filtering with validation
   const filteredTransactions = Array.isArray(allTransactions) ? allTransactions.filter(tx => {
-    if (!tx) return false
-    
-    const statusStr = getStatusText(tx.status).toLowerCase()
-    const matchesStatus = transactionFilter === 'all' || statusStr === transactionFilter.toLowerCase()
-    
-    const matchesSearch = searchQuery === '' || 
-      (tx.id && tx.id.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (tx.qr_id && tx.qr_id.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (tx.fiat_currency && tx.fiat_currency.toLowerCase().includes(searchQuery.toLowerCase()))
-    
-    return matchesStatus && matchesSearch
-  }) : []
+  if (!tx) {
+    console.log('🔍 Null transaction found, skipping')
+    return false
+  }
+  
+  // Debug log for first transaction
+  if (allTransactions.indexOf(tx) === 0) {
+    console.log('🔍 First transaction for filtering:', tx)
+    console.log('🔍 Status:', tx.status)
+    console.log('🔍 Status text:', getStatusText(tx.status))
+    console.log('🔍 Transaction filter:', transactionFilter)
+    console.log('🔍 Search query:', searchQuery)
+  }
+  
+  const statusStr = getStatusText(tx.status).toLowerCase()
+  const matchesStatus = transactionFilter === 'all' || statusStr === transactionFilter.toLowerCase()
+  
+  const matchesSearch = searchQuery === '' || 
+    (tx.id && tx.id.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (tx.reference_id && tx.reference_id.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (tx.fiat_currency && tx.fiat_currency.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (tx.description && tx.description.toLowerCase().includes(searchQuery.toLowerCase()))
+  
+  const result = matchesStatus && matchesSearch
+  
+  // Debug log for filtering result
+  if (allTransactions.indexOf(tx) === 0) {
+    console.log('🔍 Filter result for first tx:', {
+      matchesStatus,
+      matchesSearch,
+      result,
+      statusStr,
+      transactionFilter
+    })
+  }
+  
+  return result
+}) : []
 
   const getRegionalStats = () => {
     if (!networkStats?.currency_stats || !Array.isArray(networkStats.currency_stats)) return {}
-    
+
     const regionStats = {}
-    
+
     networkStats.currency_stats.forEach(stat => {
       const region = currencyCountryMap[stat.currency]?.region || 'Other'
       if (!regionStats[region]) {
@@ -236,13 +330,13 @@ const NetworkStats = () => {
           transactionCount: 0
         }
       }
-      
+
       regionStats[region].currencies.push(stat)
       regionStats[region].totalVolume += convertBigIntToNumber(stat.total_icp_volume)
       regionStats[region].totalFiatVolume += convertBigIntToNumber(stat.total_fiat_volume)
       regionStats[region].transactionCount += convertBigIntToNumber(stat.usage_count)
     })
-    
+
     return regionStats
   }
 
@@ -332,31 +426,28 @@ const NetworkStats = () => {
           <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
             <button
               onClick={() => setViewMode('overview')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                viewMode === 'overview' 
-                  ? 'bg-white text-blue-600 shadow-sm' 
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'overview'
+                  ? 'bg-white text-blue-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
-              }`}
+                }`}
             >
               Overview
             </button>
             <button
               onClick={() => setViewMode('transactions')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                viewMode === 'transactions' 
-                  ? 'bg-white text-blue-600 shadow-sm' 
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'transactions'
+                  ? 'bg-white text-blue-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
-              }`}
+                }`}
             >
               All Transactions ({Array.isArray(allTransactions) ? allTransactions.length : 0})
             </button>
             <button
               onClick={() => setViewMode('currencies')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                viewMode === 'currencies' 
-                  ? 'bg-white text-blue-600 shadow-sm' 
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'currencies'
+                  ? 'bg-white text-blue-600 shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
-              }`}
+                }`}
             >
               Currencies
             </button>
@@ -557,12 +648,15 @@ const NetworkStats = () => {
                       <React.Fragment key={tx.id}>
                         <tr className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {tx.id}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                QR: {tx.qr_id}
+                            <div className="flex items-center space-x-2">
+                              {getTransactionTypeIcon(tx.transaction_type)}
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">
+                                  {tx.id}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {getTransactionTypeText(tx.transaction_type)} • {tx.reference_id}
+                                </div>
                               </div>
                             </div>
                           </td>
@@ -607,19 +701,20 @@ const NetworkStats = () => {
                                 <div>
                                   <h4 className="font-medium text-gray-900 mb-2">Transaction Details</h4>
                                   <div className="space-y-1">
-                                    <div><span className="text-gray-500">From:</span> {tx.from}</div>
-                                    <div><span className="text-gray-500">To:</span> {tx.to}</div>
-                                    <div><span className="text-gray-500">Fee:</span> {formatICP(tx.fee)} ICP</div>
+                                    <div><span className="text-gray-500">Type:</span> {getTransactionTypeText(tx.transaction_type)}</div>
+                                    <div><span className="text-gray-500">From:</span> {tx.from_user?.toString() || 'System'}</div>
+                                    <div><span className="text-gray-500">To:</span> {tx.to_user?.toString() || 'N/A'}</div>
+                                    <div><span className="text-gray-500">Fee:</span> {tx.fee ? formatICP(tx.fee) + ' ICP' : 'N/A'}</div>
                                     <div><span className="text-gray-500">Hash:</span> {tx.transaction_hash || 'N/A'}</div>
                                   </div>
                                 </div>
                                 <div>
                                   <h4 className="font-medium text-gray-900 mb-2">Payment Info</h4>
                                   <div className="space-y-1">
+                                    <div><span className="text-gray-500">Description:</span> {tx.description}</div>
                                     <div><span className="text-gray-500">Currency:</span> {tx.fiat_currency}</div>
                                     <div><span className="text-gray-500">Fiat Amount:</span> {formatCurrency(tx.fiat_amount, tx.fiat_currency)}</div>
                                     <div><span className="text-gray-500">ICP Amount:</span> {formatICP(tx.icp_amount)} ICP</div>
-                                    <div><span className="text-gray-500">Total Cost:</span> {formatICP(tx.amount + tx.fee)} ICP</div>
                                   </div>
                                 </div>
                               </div>
@@ -631,15 +726,15 @@ const NetworkStats = () => {
                   </tbody>
                 </table>
               </div>
-              
+
               {filteredTransactions.length === 0 && (
                 <div className="text-center py-12">
                   <div className="text-gray-500 text-lg">
                     {allTransactions.length === 0 ? 'No transactions found' : 'No transactions match your search'}
                   </div>
                   <div className="text-gray-400 text-sm mt-2">
-                    {allTransactions.length === 0 ? 
-                      'Make some transactions to see them here' : 
+                    {allTransactions.length === 0 ?
+                      'Make some transactions to see them here' :
                       'Try adjusting your search query or filter'
                     }
                   </div>

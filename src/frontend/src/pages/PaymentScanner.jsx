@@ -60,6 +60,10 @@ const PaymentScanner = () => {
     setError('')
 
     try {
+      console.log('🔍 BEFORE PAYMENT: Getting current balance...')
+      const balanceBefore = await backend.getUserBalance()
+      console.log('💰 Balance before payment:', balanceBefore)
+
       console.log('Processing payment for QR ID:', qrId.trim())
       const result = await backend.processPayment(qrId.trim())
       console.log('Payment result:', result)
@@ -75,31 +79,34 @@ const PaymentScanner = () => {
         setQrInfo(null)
         setQrId('')
 
-        // Refresh balance setelah payment sukses dengan multiple attempts
+        // ENHANCED: Debug balance refresh
         if (backend) {
           try {
-            // Wait 2 seconds untuk memastikan balance logs sudah diupdate
-            await new Promise(resolve => setTimeout(resolve, 2000))
+            // Wait for balance logs to be processed
+            await new Promise(resolve => setTimeout(resolve, 3000))
             
-            // Refresh balance menggunakan balance logs
-            const userBalance = await backend.getUserBalance()
-            console.log('Balance refreshed after payment:', userBalance)
+            console.log('🔍 AFTER PAYMENT: Getting updated balance...')
+            const balanceAfter = await backend.getUserBalance()
+            console.log('💰 Balance after payment:', balanceAfter)
             
-            // Trigger custom event untuk refresh dashboard
+            // Get balance history for debugging
+            const balanceHistory = await backend.getUserBalanceHistory()
+            console.log('📜 Balance history:', balanceHistory)
+            
+            // Trigger balance update event
             window.dispatchEvent(new CustomEvent('balance-updated', { 
-              detail: { userBalance } 
+              detail: { 
+                userBalance: balanceAfter,
+                balanceHistory 
+              } 
             }))
-            
-            // Refresh user stats juga
-            const userStats = await backend.getUserStats()
-            console.log('Stats refreshed after payment:', userStats)
             
           } catch (err) {
             console.error('Error refreshing balance after payment:', err)
           }
         }
 
-        // Redirect dengan delay lebih lama
+        // Redirect dengan delay
         setTimeout(() => {
           navigate('/dashboard', { 
             state: { message: 'Payment completed successfully!' }
@@ -110,20 +117,7 @@ const PaymentScanner = () => {
       }
     } catch (error) {
       console.error('Payment processing error:', error)
-      console.error('Error details:', {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
-      })
-
-      // Handle specific errors
-      if (error.message.includes('type mismatch')) {
-        setError('Payment processed but response format error. Please refresh the page.')
-      } else if (error.message.includes('principal')) {
-        setError('Authentication error. Please reconnect your wallet.')
-      } else {
-        setError('Payment may have been processed. Please check your transaction history.')
-      }
+      setError('Payment may have been processed. Please check your transaction history.')
     } finally {
       setPaymentLoading(false)
     }
