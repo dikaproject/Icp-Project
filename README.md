@@ -108,7 +108,7 @@ nvm use 18
 ```bash
 # English: Clone the repository
 # Indonesia: Klon repositori
-git clone https://github.com/your-username/icp-payment-gateway.git
+git clone https://github.com/dikaproject/Icp-Project.git
 cd icp-payment-gateway
 ```
 
@@ -175,11 +175,8 @@ Edit `/src/backend/src/topup.rs`:
 
 ```rust
 fn get_base_url() -> &'static str {
-    // DEVELOPMENT MODE (npm run dev - port 5173)
-    "http://localhost:5173"
-    
-    // OR if using port 3000:
-    // "http://localhost:3000"
+    // DEVELOPMENT MODE (npm run dev - port 3000)
+      "http://localhost:3000"
     
     // CANISTER MODE (uncomment line below, comment line above)
     // "http://127.0.0.1:4943" 
