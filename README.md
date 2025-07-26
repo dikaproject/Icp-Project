@@ -380,10 +380,10 @@ ls -la src/frontend/.env*
 - [ ] Real ICP wallet connection
 - [ ] Actual ICP transactions
 - [ ] Enhanced security
-- [ ] Mobile responsiveness
+- [ ] all currency support
+- [ ] gateway service like midtrans
 
 ### v3 (Future) - Advanced Features
-- [ ] Mobile app (React Native)
 - [ ] Merchant dashboard
 - [ ] Advanced analytics
 - [ ] Multi-signature support
