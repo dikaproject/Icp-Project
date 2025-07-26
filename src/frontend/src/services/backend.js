@@ -264,6 +264,56 @@ const NetworkStats = IDL.Record({
   'currency_countries': IDL.Vec(CurrencyCountryInfo),
 })
 
+const EncryptedWalletIdentity = IDL.Record({
+    'email': IDL.Text,
+    'encrypted_secret_key': IDL.Text,
+    'wallet_name': IDL.Text,
+    'created_at': IDL.Nat64,
+    'last_accessed': IDL.Nat64,
+    'access_count': IDL.Nat64,
+  })
+
+  const WalletIdentityResult = IDL.Record({
+    'secret_key_hex': IDL.Text,
+    'wallet_name': IDL.Text,
+    'created_at': IDL.Nat64,
+    'last_accessed': IDL.Nat64,
+    'access_count': IDL.Nat64,
+  })
+
+  const NetworkTransactionType = IDL.Variant({
+    'Payment': IDL.Null,
+    'Topup': IDL.Null,
+    'Withdrawal': IDL.Null,
+    'Fee': IDL.Null,
+  })
+
+  const NetworkTransactionStatus = IDL.Variant({
+    'Pending': IDL.Null,
+    'Processing': IDL.Null,
+    'Completed': IDL.Null,
+    'Failed': IDL.Null,
+    'Expired': IDL.Null,
+  })
+
+  const NetworkTransaction = IDL.Record({
+    'id': IDL.Text,
+    'transaction_type': NetworkTransactionType,
+    'from_user': IDL.Opt(IDL.Principal),
+    'to_user': IDL.Opt(IDL.Principal),
+    'amount': IDL.Nat64,
+    'fiat_amount': IDL.Float64,
+    'fiat_currency': IDL.Text,
+    'icp_amount': IDL.Nat64,
+    'timestamp': IDL.Nat64,
+    'status': NetworkTransactionStatus,
+    'reference_id': IDL.Text,
+    'transaction_hash': IDL.Opt(IDL.Text),
+    'fee': IDL.Opt(IDL.Nat64),
+    'description': IDL.Text,
+  })
+
+
 
 
   // Define all Result types
@@ -275,7 +325,8 @@ const NetworkStats = IDL.Record({
   const Result_QRCode = IDL.Variant({ 'Ok': QRCode, 'Err': IDL.Text })
   const Result_QRDisplayInfo = IDL.Variant({ 'Ok': QRDisplayInfo, 'Err': IDL.Text })
   const Result_TopUpTransaction = IDL.Variant({ 'Ok': TopUpTransaction, 'Err': IDL.Text })
-  const Result_Transaction = IDL.Variant({ 'Ok': Transaction, 'Err': IDL.Text }) // FIX: Add this
+  const Result_Transaction = IDL.Variant({ 'Ok': Transaction, 'Err': IDL.Text }) 
+  const Result_WalletIdentity = IDL.Variant({ 'Ok': WalletIdentityResult, 'Err': IDL.Text })
 
   return IDL.Service({
     // User management
@@ -285,6 +336,15 @@ const NetworkStats = IDL.Record({
     'get_system_stats': IDL.Func([], [SystemStats], ['query']),
     'get_user_transaction_summaries': IDL.Func([], [IDL.Vec(TransactionSummary)], ['query']),
     'get_supported_currencies_list': IDL.Func([], [IDL.Vec(IDL.Text)], ['query']),
+    'register_user_by_email': IDL.Func([IDL.Text, IDL.Opt(IDL.Text), IDL.Text], [Result_User], []),
+    'check_email_availability': IDL.Func([IDL.Text], [IDL.Bool], ['query']),
+    'get_user_by_email': IDL.Func([IDL.Text], [IDL.Opt(User)], ['query']),
+    'save_wallet_identity_by_email': IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Text], [Result_String], []),
+    'get_wallet_identity_by_email': IDL.Func([IDL.Text, IDL.Text], [Result_WalletIdentity], []),
+    'check_wallet_identity_exists': IDL.Func([IDL.Text], [IDL.Bool], ['query']),
+    'update_wallet_identity_password': IDL.Func([IDL.Text, IDL.Text, IDL.Text], [Result_String], []),
+    'debug_get_all_users': IDL.Func([], [IDL.Vec(IDL.Tuple(IDL.Text, User))], ['query']),
+    'debug_get_user_count': IDL.Func([], [IDL.Nat64], ['query']),
     
     // Exchange rates
     'fetch_exchange_rate': IDL.Func([IDL.Text], [Result_ExchangeRate], []),
@@ -305,6 +365,7 @@ const NetworkStats = IDL.Record({
     'get_user_topup_history': IDL.Func([], [IDL.Vec(TopUpTransaction)], ['query']),
 
     'get_network_stats': IDL.Func([], [NetworkStats], ['query']),
+    'get_all_network_transactions': IDL.Func([], [IDL.Vec(NetworkTransaction)], ['query']),
     'get_all_transactions': IDL.Func([], [IDL.Vec(Transaction)], ['query']),
 
     // Add new balance history methods
@@ -371,6 +432,112 @@ export class PaymentBackendService {
       }
 
       throw new Error(`Registration failed: ${error.message}`)
+    }
+  }
+
+  async debugGetAllUsers() {
+    try {
+      const result = await this.actor.debug_get_all_users()
+      console.log('🔍 All users in canister:', result)
+      return result
+    } catch (error) {
+      console.error('Debug get all users error:', error)
+      return []
+    }
+  }
+
+  async debugGetUserCount() {
+    try {
+      const result = await this.actor.debug_get_user_count()
+      console.log('📊 Total user count:', result)
+      return result
+    } catch (error) {
+      console.error('Debug get user count error:', error)
+      return 0
+    }
+  }
+
+  async registerUserByEmail(email, username, walletAddress) {
+    try {
+      return await this.actor.register_user_by_email(email, username ? [username] : [], walletAddress)
+    } catch (error) {
+      console.error('Register user by email error:', error)
+      throw error
+    }
+  }
+
+  async checkEmailAvailability(email) {
+    try {
+      return await this.actor.check_email_availability(email)
+    } catch (error) {
+      console.error('Check email availability error:', error)
+      return false
+    }
+  }
+
+  async saveWalletIdentityByEmail(email, secretKeyHex, password, walletName) {
+    try {
+      console.log('🔐 Saving wallet identity for email:', email)
+      const result = await this.actor.save_wallet_identity_by_email(email, secretKeyHex, password, walletName)
+      console.log('💾 Save wallet result:', result)
+      return result
+    } catch (error) {
+      console.error('Save wallet identity error:', error)
+      return { Err: error.message }
+    }
+  }
+
+  async getWalletIdentityByEmail(email, password) {
+    try {
+      console.log('🔓 Getting wallet identity for email:', email)
+      const result = await this.actor.get_wallet_identity_by_email(email, password)
+      console.log('🔍 Get wallet result:', result)
+      return result
+    } catch (error) {
+      console.error('Get wallet identity error:', error)
+      return { Err: error.message }
+    }
+  }
+
+  async checkWalletIdentityExists(email) {
+    try {
+      console.log('🔍 Checking wallet identity exists for:', email)
+      const result = await this.actor.check_wallet_identity_exists(email)
+      console.log('✅ Wallet exists check result:', result)
+      return result
+    } catch (error) {
+      console.error('Check wallet identity exists error:', error)
+      return false
+    }
+  }
+
+  async updateWalletIdentityPassword(email, oldPassword, newPassword) {
+    try {
+      console.log('🔄 Updating wallet password for email:', email)
+      const result = await this.actor.update_wallet_identity_password(email, oldPassword, newPassword)
+      console.log('🔐 Update password result:', result)
+      return result
+    } catch (error) {
+      console.error('Update wallet password error:', error)
+      return { Err: error.message }
+    }
+  }
+
+  async getUserByEmail(email) {
+    try {
+      console.log('👤 Getting user by email:', email)
+      const result = await this.actor.get_user_by_email(email)
+      console.log('📋 Get user by email result:', result)
+      
+      // FIXED: Return null instead of empty array if no user found
+      if (!result || (Array.isArray(result) && result.length === 0)) {
+        return null
+      }
+      
+      return result
+    } catch (error) {
+      console.error('Get user by email error:', error)
+      return null
     }
   }
 
@@ -548,6 +715,17 @@ export class PaymentBackendService {
     } catch (error) {
       console.error('Get topup transaction error:', error)
       return null
+    }
+  }
+
+  async getAllNetworkTransactions() {
+    try {
+      const result = await this.actor.get_all_network_transactions()
+      console.log('🌐 Network transactions fetched:', result?.length || 0)
+      return result || []
+    } catch (error) {
+      console.error('Get all network transactions error:', error)
+      return []
     }
   }
 

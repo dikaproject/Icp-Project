@@ -257,6 +257,55 @@ type UserSession = record {
   is_active : bool;
 };
 
+type EncryptedWalletIdentity = record {
+  email : text;
+  encrypted_secret_key : text;
+  wallet_name : text;
+  created_at : nat64;
+  last_accessed : nat64;
+  access_count : nat64;
+};
+
+type WalletIdentityResult = record {
+  secret_key_hex : text;
+  wallet_name : text;
+  created_at : nat64;
+  last_accessed : nat64;
+  access_count : nat64;
+};
+
+type NetworkTransactionType = variant {
+  Payment;
+  Topup;
+  Withdrawal;
+  Fee;
+};
+
+type NetworkTransactionStatus = variant {
+  Pending;
+  Processing;
+  Completed;
+  Failed;
+  Expired;
+};
+
+type NetworkTransaction = record {
+  id : text;
+  transaction_type : NetworkTransactionType;
+  from_user : opt principal;
+  to_user : opt principal;
+  amount : nat64;
+  fiat_amount : float64;
+  fiat_currency : text;
+  icp_amount : nat64;
+  timestamp : nat64;
+  status : NetworkTransactionStatus;
+  reference_id : text;
+  transaction_hash : opt text;
+  fee : opt nat64;
+  description : text;
+};
+
 type Result = variant { Ok : User; Err : text };
 type Result_1 = variant { Ok : ExchangeRate; Err : text };
 type Result_2 = variant { Ok : QRCode; Err : text };
@@ -266,6 +315,8 @@ type Result_5 = variant { Ok : TopUpTransaction; Err : text };
 type Result_6 = variant { Ok : UserBalance; Err : text };
 type Result_7 = variant { Ok : UserPreferences; Err : text };
 type Result_8 = variant { Ok : UserSession; Err : text };
+type Result_9 = variant { Ok : text; Err : text };
+type Result_10 = variant { Ok : WalletIdentityResult; Err : text };
 
 service : {
   // User management
@@ -274,6 +325,15 @@ service : {
   get_user : () -> (opt User) query;
   get_user_by_id : (principal) -> (opt User) query;
   get_user_stats : () -> (opt UserStats) query;
+  register_user_by_email : (text, opt text, text) -> (Result);
+  check_email_availability : (text) -> (bool) query;
+  get_user_by_email : (text) -> (opt User) query;
+
+  // Wallet identity management
+  save_wallet_identity_by_email : (text, text, text, text) -> (Result_9);
+  get_wallet_identity_by_email : (text, text) -> (Result_10);
+  check_wallet_identity_exists : (text) -> (bool) query;
+  update_wallet_identity_password : (text, text, text) -> (Result_9);
   
   // Exchange rates
   fetch_exchange_rate : (text) -> (Result_1);
@@ -294,6 +354,7 @@ service : {
   get_user_transaction_summaries : () -> (vec TransactionSummary) query;
   get_recent_transactions_public : () -> (vec Transaction) query;
   get_network_stats : () -> (NetworkStats) query;
+  get_all_network_transactions : () -> (vec NetworkTransaction) query;
   get_all_transactions : () -> (vec Transaction) query;
   
   // System management

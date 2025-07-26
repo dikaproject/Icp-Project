@@ -4,6 +4,15 @@ use candid::Principal;
 use ic_cdk::api::time;
 use sha2::{Digest, Sha256};
 
+fn get_base_url() -> &'static str {
+    // DEVELOPMENT MODE
+    "http://localhost:3000"
+    // CANISTER MODE (uncomment line below, comment line above)
+    // "http://127.0.0.1:4943" example : http://uzt4z-lp777-77774-qaabq-cai.localhost:4943/
+    // PRODUCTION MODE (uncomment line below, comment others)
+    // "https://your-production-domain.com" coming soon
+}
+
 // Generate unique top-up transaction ID
 pub fn generate_topup_id() -> String {
     let timestamp = time();
@@ -31,12 +40,10 @@ pub async fn create_qris_topup(
     let current_time = time();
     let expire_time = current_time + (15 * 60 * 1_000_000_000); // 15 minutes
     
-    // Get base URL from environment or use default
-    let base_url = if cfg!(debug_assertions) {
-        "http://localhost:3000"
-    } else {
-        "https://your-production-domain.com"
-    };
+    // UPDATED: Use simple function
+    let base_url = get_base_url();
+    
+    ic_cdk::println!("🌐 Using base URL: {}", base_url);
     
     let qris_data = QRISData {
         qr_code_url: format!("{}/qris/{}", base_url, topup_id),

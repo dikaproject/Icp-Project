@@ -12,7 +12,18 @@ import {
   ArrowLeft,
   ExternalLink,
   Copy,
-  Download
+  Download,
+  Timer,
+  Receipt,
+  Shield,
+  Zap,
+  Sparkles,
+  Loader,
+  Check,
+  X,
+  RefreshCw,
+  Eye,
+  Info
 } from 'lucide-react'
 
 const ClaimQRIS = () => {
@@ -25,6 +36,7 @@ const ClaimQRIS = () => {
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     if (topupId && backend) {
@@ -144,12 +156,12 @@ const ClaimQRIS = () => {
     const statusValue = getStatusText(status)
     
     switch (statusValue) {
-      case 'Completed': return 'bg-green-100 text-green-800'
-      case 'Processing': return 'bg-blue-100 text-blue-800'
-      case 'Pending': return 'bg-yellow-100 text-yellow-800'
-      case 'Failed': return 'bg-red-100 text-red-800'
-      case 'Expired': return 'bg-gray-100 text-gray-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case 'Completed': return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+      case 'Processing': return 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+      case 'Pending': return 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+      case 'Failed': return 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+      case 'Expired': return 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+      default: return 'bg-slate-500/10 text-slate-400 border-slate-500/20'
     }
   }
 
@@ -157,12 +169,12 @@ const ClaimQRIS = () => {
     const statusValue = getStatusText(status)
     
     switch (statusValue) {
-      case 'Completed': return <CheckCircle className="w-5 h-5 text-green-600" />
-      case 'Processing': return <Clock className="w-5 h-5 text-blue-600 animate-spin" />
-      case 'Pending': return <Clock className="w-5 h-5 text-yellow-600" />
-      case 'Failed': return <AlertCircle className="w-5 h-5 text-red-600" />
-      case 'Expired': return <AlertCircle className="w-5 h-5 text-gray-600" />
-      default: return <Clock className="w-5 h-5 text-gray-600" />
+      case 'Completed': return <CheckCircle className="w-5 h-5" />
+      case 'Processing': return <Loader className="w-5 h-5 animate-spin" />
+      case 'Pending': return <Clock className="w-5 h-5" />
+      case 'Failed': return <AlertCircle className="w-5 h-5" />
+      case 'Expired': return <X className="w-5 h-5" />
+      default: return <Clock className="w-5 h-5" />
     }
   }
 
@@ -214,8 +226,12 @@ const ClaimQRIS = () => {
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text)
       .then(() => {
+        setCopied(true)
         setSuccess('Copied to clipboard!')
-        setTimeout(() => setSuccess(''), 2000)
+        setTimeout(() => {
+          setCopied(false)
+          setSuccess('')
+        }, 2000)
       })
       .catch(err => {
         console.error('Error copying text:', err)
@@ -226,10 +242,11 @@ const ClaimQRIS = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#181A20] flex items-center justify-center p-6">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading transaction...</p>
+          <div className="w-16 h-16 border-4 border-[#885FFF] border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+          <h2 className="text-2xl font-bold text-[#F5F6FA] mb-3">Loading Transaction</h2>
+          <p className="text-[#B3B3C2]">Please wait while we fetch your payment details...</p>
         </div>
       </div>
     )
@@ -237,15 +254,17 @@ const ClaimQRIS = () => {
 
   if (error && !topupData) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#181A20] flex items-center justify-center p-6">
         <div className="max-w-md mx-auto text-center">
-          <div className="bg-white rounded-lg shadow-lg p-8">
-            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Transaction Not Found</h2>
-            <p className="text-gray-600 mb-6">{error}</p>
+          <div className="bg-[#222334] rounded-3xl shadow-2xl shadow-black/20 p-8 border border-[#23253B]">
+            <div className="w-20 h-20 bg-rose-500/10 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-rose-500/20">
+              <AlertCircle className="w-10 h-10 text-rose-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-[#F5F6FA] mb-3">Transaction Not Found</h2>
+            <p className="text-[#B3B3C2] mb-8 leading-relaxed">{error}</p>
             <button
               onClick={() => navigate('/topup')}
-              className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+              className="w-full bg-gradient-to-r from-[#885FFF] to-[#59C1FF] text-white py-4 px-6 rounded-2xl font-semibold hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300 hover:scale-[1.02]"
             >
               Create New Top-up
             </button>
@@ -260,129 +279,199 @@ const ClaimQRIS = () => {
   const currentStatus = getStatusText(topupData?.status)
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#181A20]">
       {/* Header */}
-      <div className="bg-white shadow-sm">
-        <div className="max-w-2xl mx-auto px-4 py-4">
+      <div className="bg-[#1A1D23] border-b border-[#23253B] backdrop-blur-xl">
+        <div className="max-w-4xl mx-auto px-6 py-6">
           <div className="flex items-center space-x-4">
             <button
               onClick={() => navigate('/topup')}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-3 hover:bg-[#222334] rounded-2xl transition-all duration-200 group"
             >
-              <ArrowLeft className="w-5 h-5 text-gray-600" />
+              <ArrowLeft className="w-6 h-6 text-[#B3B3C2] group-hover:text-[#F5F6FA]" />
             </button>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">QRIS Payment</h1>
-              <p className="text-sm text-gray-600">Complete your top-up transaction</p>
+              <h1 className="text-2xl font-bold text-[#F5F6FA]">QRIS Payment Gateway</h1>
+              <p className="text-[#B3B3C2]">Complete your top-up transaction securely</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-2xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          {/* Merchant Info */}
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6">
-            <div className="flex items-center space-x-4">
-              <div className="bg-white/20 p-3 rounded-lg">
+      <div className="max-w-4xl mx-auto px-6 py-8">
+        <div className="bg-[#222334] rounded-3xl shadow-2xl shadow-black/20 overflow-hidden border border-[#23253B]">
+          {/* Merchant Header */}
+          <div className="relative overflow-hidden bg-gradient-to-br from-[#885FFF] via-[#59C1FF] to-[#885FFF] text-white p-8">
+            {/* Gradient Orbs */}
+            <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -ml-16 -mb-16"></div>
+            
+            <div className="relative flex items-center space-x-6">
+              <div className="w-16 h-16 bg-white/20 backdrop-blur-xl rounded-2xl flex items-center justify-center shadow-2xl">
                 <Wallet className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h2 className="text-xl font-bold">ICP Payment Gateway</h2>
-                <p className="text-indigo-100">Secure blockchain payment processing</p>
+                <h2 className="text-3xl font-bold">ICP Payment Gateway</h2>
+                <p className="text-white/80 text-lg">Secure Internet Computer blockchain payment processing</p>
+                <div className="flex items-center space-x-2 mt-2">
+                  <Shield className="w-5 h-5 text-white/80" />
+                  <span className="text-white/80 font-medium">256-bit SSL Encryption</span>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Transaction Details */}
-          <div className="p-6 space-y-6">
-            {/* Status Badge */}
+          <div className="p-8 space-y-8">
+            {/* Status Section */}
             <div className="text-center">
-              <div className={`inline-flex items-center space-x-2 px-4 py-2 rounded-full ${getStatusColor(topupData?.status)}`}>
+              <div className={`inline-flex items-center space-x-3 px-6 py-4 rounded-2xl border font-semibold text-lg ${getStatusColor(topupData?.status)}`}>
                 {getStatusIcon(topupData?.status)}
-                <span className="font-medium">{currentStatus}</span>
+                <span>{currentStatus}</span>
               </div>
             </div>
 
-            {/* Amount */}
-            <div className="text-center">
-              <p className="text-sm text-gray-600 mb-1">Amount to Pay</p>
-              <p className="text-4xl font-bold text-gray-900 mb-2">
-                {formatCurrency(topupData?.fiat_amount, topupData?.fiat_currency)}
-              </p>
-              <p className="text-sm text-gray-500">
-                ≈ {(formatAmount(topupData?.amount) / 100000000).toFixed(8)} ICP
-              </p>
-            </div>
-
-            {/* Transaction Info */}
-            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Transaction ID</span>
-                <span className="font-mono text-sm">{topupData?.id}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Payment Method</span>
-                <div className="flex items-center space-x-2">
-                  <QrCode className="w-4 h-4 text-gray-500" />
-                  <span>QRIS</span>
+            {/* Payment Amount Card */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-[#262840] via-[#222334] to-[#262840] p-8 rounded-3xl border border-[#23253B]">
+              {/* Gradient Orbs */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#885FFF]/20 to-[#59C1FF]/20 rounded-full blur-3xl -mr-16 -mt-16"></div>
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-[#59C1FF]/20 to-[#885FFF]/20 rounded-full blur-3xl -ml-12 -mb-12"></div>
+              
+              <div className="relative text-center">
+                <div className="flex items-center justify-center space-x-4 mb-6">
+                  <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center shadow-xl shadow-emerald-500/25">
+                    <Receipt className="w-8 h-8 text-white" />
+                  </div>
                 </div>
+                
+                <p className="text-[#B3B3C2] font-medium mb-3">Amount to Pay</p>
+                <p className="text-5xl font-bold text-[#F5F6FA] mb-4">
+                  {formatCurrency(topupData?.fiat_amount, topupData?.fiat_currency)}
+                </p>
+                <p className="text-xl text-[#885FFF] font-semibold">
+                  ≈ {(formatAmount(topupData?.amount) / 100000000).toFixed(8)} ICP
+                </p>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Merchant</span>
-                <span>{qrisData?.merchant_id || 'ICP_PAYMENT_001'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Created</span>
-                <span>{formatDate(topupData?.created_at)}</span>
+            </div>
+
+            {/* Transaction Information Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="bg-[#181A20] p-6 rounded-2xl border border-[#23253B]">
+                  <div className="text-sm font-medium text-[#B3B3C2] mb-3">Transaction ID</div>
+                  <div className="font-mono text-[#F5F6FA] text-lg break-all">{topupData?.id}</div>
+                </div>
+                
+                <div className="bg-[#181A20] p-6 rounded-2xl border border-[#23253B]">
+                  <div className="text-sm font-medium text-[#B3B3C2] mb-3">Payment Method</div>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl flex items-center justify-center">
+                      <QrCode className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-[#F5F6FA]">QRIS Payment</div>
+                      <div className="text-[#B3B3C2] text-sm">Quick Response Indonesian Standard</div>
+                    </div>
+                  </div>
+                </div>
               </div>
               
-              {qrisData?.expire_time && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Expires</span>
-                  <span className={isExpired(qrisData.expire_time) ? 'text-red-600' : 'text-gray-900'}>
-                    {formatDate(qrisData.expire_time)}
-                  </span>
+              <div className="space-y-4">
+                <div className="bg-[#181A20] p-6 rounded-2xl border border-[#23253B]">
+                  <div className="text-sm font-medium text-[#B3B3C2] mb-3">Merchant ID</div>
+                  <div className="font-mono text-[#F5F6FA] text-lg">{qrisData?.merchant_id || 'ICP_PAYMENT_001'}</div>
                 </div>
-              )}
+                
+                <div className="bg-[#181A20] p-6 rounded-2xl border border-[#23253B]">
+                  <div className="text-sm font-medium text-[#B3B3C2] mb-3">Created</div>
+                  <div className="text-[#F5F6FA] font-medium">{formatDate(topupData?.created_at)}</div>
+                </div>
+              </div>
             </div>
 
-            {/* QR Code Display */}
+            {/* Expiry Information */}
+            {qrisData?.expire_time && (
+              <div className={`p-6 rounded-2xl border ${
+                isExpired(qrisData.expire_time) 
+                  ? 'bg-rose-500/10 border-rose-500/20' 
+                  : 'bg-amber-500/10 border-amber-500/20'
+              }`}>
+                <div className="flex items-center space-x-4">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                    isExpired(qrisData.expire_time) ? 'bg-rose-500/20' : 'bg-amber-500/20'
+                  }`}>
+                    <Timer className={`w-6 h-6 ${
+                      isExpired(qrisData.expire_time) ? 'text-rose-400' : 'text-amber-400'
+                    }`} />
+                  </div>
+                  <div>
+                    <div className={`font-semibold text-lg ${
+                      isExpired(qrisData.expire_time) ? 'text-rose-400' : 'text-amber-400'
+                    }`}>
+                      {isExpired(qrisData.expire_time) ? 'Payment Expired' : 'Payment Expires'}
+                    </div>
+                    <div className={`${
+                      isExpired(qrisData.expire_time) ? 'text-rose-300' : 'text-amber-300'
+                    }`}>
+                      {formatDate(qrisData.expire_time)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* QR Code Section */}
             {qrisData && (
-              <div className="text-center">
-                <div className="bg-white p-6 rounded-lg border-2 border-gray-200 mb-4">
-                  <QRCode
-                    value={qrisData.qr_code_url}
-                    size={180}
-                    level="M"
-                    includeMargin={true}
-                    style={{ 
-                      height: "auto", 
-                      maxWidth: "100%", 
-                      width: "180px",
-                      margin: "0 auto"
-                    }}
-                  />
-                  <p className="text-gray-600 text-sm mt-4 mb-2">
-                    Scan with your QRIS-enabled app
+              <div className="bg-[#181A20] p-8 rounded-3xl border border-[#23253B]">
+                <div className="text-center">
+                  <div className="flex items-center justify-center space-x-3 mb-8">
+                    <div className="w-12 h-12 bg-gradient-to-r from-[#885FFF] to-[#59C1FF] rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/25">
+                      <QrCode className="w-6 h-6 text-white" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-[#F5F6FA]">Payment QR Code</h3>
+                  </div>
+                  
+                  <div className="bg-white p-8 rounded-3xl shadow-xl mx-auto inline-block mb-8">
+                    <QRCode
+                      value={qrisData.qr_code_url}
+                      size={220}
+                      level="M"
+                      includeMargin={true}
+                      style={{ 
+                        height: "auto", 
+                        maxWidth: "100%", 
+                        width: "220px",
+                        margin: "0 auto"
+                      }}
+                    />
+                  </div>
+                  
+                  <h4 className="text-xl font-bold text-[#F5F6FA] mb-3">
+                    Scan with QRIS App
+                  </h4>
+                  <p className="text-[#B3B3C2] mb-8 leading-relaxed max-w-md mx-auto">
+                    Use any QRIS-enabled mobile banking or e-wallet app to scan this code and complete your payment
                   </p>
-                  <div className="flex justify-center space-x-2 mt-3">
+                  
+                  {/* QR Code Actions */}
+                  <div className="flex flex-col sm:flex-row justify-center gap-4">
                     <button
                       onClick={() => copyToClipboard(qrisData.qr_code_url)}
-                      className="flex items-center space-x-1 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                      className="flex items-center justify-center space-x-3 bg-[#262840] hover:bg-[#363850] text-[#F5F6FA] px-6 py-4 rounded-2xl transition-all duration-200 border border-[#23253B] hover:border-[#885FFF]/50 font-semibold"
                     >
-                      <Copy className="w-4 h-4" />
-                      <span>Copy</span>
+                      {copied ? <Check className="w-5 h-5 text-emerald-400" /> : <Copy className="w-5 h-5" />}
+                      <span>{copied ? 'Copied!' : 'Copy QR Link'}</span>
                     </button>
+                    
                     <a
                       href={qrisData.qr_code_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center space-x-1 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                      className="flex items-center justify-center space-x-3 bg-[#262840] hover:bg-[#363850] text-[#F5F6FA] px-6 py-4 rounded-2xl transition-all duration-200 border border-[#23253B] hover:border-[#885FFF]/50 font-semibold"
                     >
-                      <ExternalLink className="w-4 h-4" />
-                      <span>Open</span>
+                      <ExternalLink className="w-5 h-5" />
+                      <span>Open QR Link</span>
                     </a>
                   </div>
                 </div>
@@ -390,69 +479,114 @@ const ClaimQRIS = () => {
             )}
 
             {/* Action Buttons */}
-            <div className="space-y-3">
+            <div className="space-y-6">
               {currentStatus === 'Pending' && qrisData && !isExpired(qrisData.expire_time) && (
                 <button
                   onClick={handleClaim}
                   disabled={processing}
-                  className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  className="w-full group relative overflow-hidden bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl py-6 px-8 font-bold text-lg shadow-2xl shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 >
                   {processing ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                      <span>Processing...</span>
-                    </>
+                    <div className="flex items-center justify-center space-x-3">
+                      <Loader className="w-6 h-6 animate-spin" />
+                      <span>Processing Payment...</span>
+                    </div>
                   ) : (
-                    <>
-                      <CheckCircle className="w-5 h-5" />
-                      <span>Confirm Payment (Demo)</span>
-                    </>
+                    <div className="flex items-center justify-center space-x-3">
+                      <Zap className="w-6 h-6" />
+                      <span>Confirm Payment (Demo Mode)</span>
+                    </div>
                   )}
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
                 </button>
               )}
 
               {currentStatus === 'Completed' && (
-                <div className="text-center space-y-3">
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                    <p className="text-green-800 font-medium">Payment Successful!</p>
-                    <p className="text-green-600 text-sm">Your account has been topped up</p>
+                <div className="text-center space-y-6">
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-3xl p-8">
+                    <div className="w-20 h-20 bg-emerald-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                      <CheckCircle className="w-10 h-10 text-emerald-400" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-emerald-400 mb-3">Payment Successful!</h3>
+                    <p className="text-emerald-300 leading-relaxed mb-6">
+                      Your account has been successfully topped up with ICP tokens. The balance will be reflected in your wallet shortly.
+                    </p>
+                    <div className="inline-flex items-center space-x-3 bg-emerald-500/10 text-emerald-400 px-6 py-3 rounded-2xl border border-emerald-500/20">
+                      <Timer className="w-5 h-5" />
+                      <span className="font-medium">Redirecting to dashboard...</span>
+                    </div>
                   </div>
+                  
                   <button
                     onClick={() => navigate('/dashboard')}
-                    className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors"
+                    className="w-full bg-gradient-to-r from-[#885FFF] to-[#59C1FF] text-white py-6 px-8 rounded-2xl font-bold text-lg hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300 hover:scale-[1.02]"
                   >
-                    View Dashboard
+                    <div className="flex items-center justify-center space-x-3">
+                      <Eye className="w-6 h-6" />
+                      <span>View Dashboard</span>
+                    </div>
                   </button>
                 </div>
               )}
 
               {(currentStatus === 'Expired' || (qrisData && isExpired(qrisData.expire_time))) && (
-                <div className="text-center space-y-3">
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <AlertCircle className="w-8 h-8 text-red-600 mx-auto mb-2" />
-                    <p className="text-red-800 font-medium">Payment Expired</p>
-                    <p className="text-red-600 text-sm">This transaction has expired</p>
+                <div className="text-center space-y-6">
+                  <div className="bg-rose-500/10 border border-rose-500/20 rounded-3xl p-8">
+                    <div className="w-20 h-20 bg-rose-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                      <AlertCircle className="w-10 h-10 text-rose-400" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-rose-400 mb-3">Payment Expired</h3>
+                    <p className="text-rose-300 leading-relaxed">
+                      This transaction has expired and can no longer be processed. Please create a new top-up request.
+                    </p>
                   </div>
+                  
                   <button
                     onClick={() => navigate('/topup')}
-                    className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors"
+                    className="w-full bg-gradient-to-r from-[#885FFF] to-[#59C1FF] text-white py-6 px-8 rounded-2xl font-bold text-lg hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300 hover:scale-[1.02]"
                   >
-                    Create New Top-up
+                    <div className="flex items-center justify-center space-x-3">
+                      <RefreshCw className="w-6 h-6" />
+                      <span>Create New Top-up</span>
+                    </div>
                   </button>
                 </div>
               )}
             </div>
 
             {/* Demo Notice */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <div className="flex items-start space-x-3">
-                <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
+            <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-3xl p-8">
+              <div className="flex items-start space-x-4">
+                <div className="w-12 h-12 bg-amber-500/20 rounded-2xl flex items-center justify-center flex-shrink-0">
+                  <Info className="w-6 h-6 text-amber-400" />
+                </div>
                 <div>
-                  <p className="text-yellow-800 font-medium text-sm">Demo Mode</p>
-                  <p className="text-yellow-700 text-xs mt-1">
-                    This is a demo implementation. In production, this would integrate with actual QRIS payment gateways and show real QR codes.
-                  </p>
+                  <h4 className="text-amber-400 font-bold text-xl mb-4">🚀 Demo Mode Information</h4>
+                  <div className="text-[#F5F6FA] space-y-3">
+                    <p className="leading-relaxed">
+                      This is a demonstration implementation of QRIS payment integration with the Internet Computer Protocol.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                      <div className="bg-amber-500/5 p-4 rounded-2xl border border-amber-500/10">
+                        <div className="font-semibold text-amber-400 mb-2">🔧 Current Features:</div>
+                        <ul className="text-sm text-[#B3B3C2] space-y-1">
+                          <li>• QR code generation and display</li>
+                          <li>• Transaction status tracking</li>
+                          <li>• Balance updates simulation</li>
+                          <li>• Secure payment processing</li>
+                        </ul>
+                      </div>
+                      <div className="bg-amber-500/5 p-4 rounded-2xl border border-amber-500/10">
+                        <div className="font-semibold text-amber-400 mb-2">🚀 Production Ready:</div>
+                        <ul className="text-sm text-[#B3B3C2] space-y-1">
+                          <li>• Real QRIS gateway integration</li>
+                          <li>• Live payment processing</li>
+                          <li>• Bank confirmation webhooks</li>
+                          <li>• Multi-currency support</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -461,16 +595,22 @@ const ClaimQRIS = () => {
 
         {/* Messages */}
         {error && (
-          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center space-x-2">
-            <AlertCircle className="w-5 h-5 text-red-600" />
-            <span className="text-red-800">{error}</span>
+          <div className="mt-6 bg-rose-500/10 border border-rose-500/20 rounded-2xl p-6 flex items-start space-x-4">
+            <AlertCircle className="h-6 w-6 text-rose-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-rose-400 font-semibold text-lg">Error</h3>
+              <p className="text-rose-300 mt-1">{error}</p>
+            </div>
           </div>
         )}
 
         {success && (
-          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center space-x-2">
-            <CheckCircle className="w-5 h-5 text-green-600" />
-            <span className="text-green-800">{success}</span>
+          <div className="mt-6 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-6 flex items-start space-x-4">
+            <CheckCircle className="h-6 w-6 text-emerald-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-emerald-400 font-semibold text-lg">Success</h3>
+              <p className="text-emerald-300 mt-1">{success}</p>
+            </div>
           </div>
         )}
       </div>

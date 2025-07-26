@@ -379,3 +379,94 @@ pub struct CardDataInput {
     pub cvv: String,
     pub cardholder_name: String,
 }
+
+#[derive(candid::CandidType, serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct EncryptedWalletIdentity {
+    pub email: String,
+    pub encrypted_secret_key: String,
+    pub wallet_name: String,
+    pub created_at: u64,
+    pub last_accessed: u64,
+    pub access_count: u64,
+}
+
+impl Storable for EncryptedWalletIdentity {
+    fn to_bytes(&self) -> Cow<[u8]> {
+        Cow::Owned(candid::encode_one(self).unwrap())
+    }
+
+    fn from_bytes(bytes: Cow<[u8]>) -> Self {
+        candid::decode_one(&bytes).unwrap()
+    }
+
+    const BOUND: Bound = Bound::Bounded {
+        max_size: 2048, // Increase size for encrypted data
+        is_fixed_size: false,
+    };
+}
+
+#[derive(candid::CandidType, serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct WalletIdentityResult {
+    pub secret_key_hex: String,
+    pub wallet_name: String,
+    pub created_at: u64,
+    pub last_accessed: u64,
+    pub access_count: u64,
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub enum NetworkTransactionType {
+    Payment,
+    Topup,
+    Withdrawal,
+    Fee,
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub enum NetworkTransactionStatus {
+    Pending,
+    Processing,
+    Completed,
+    Failed,
+    Expired,
+}
+
+impl NetworkTransactionStatus {
+    pub fn from_transaction_status(status: &TransactionStatus) -> Self {
+        match status {
+            TransactionStatus::Pending => NetworkTransactionStatus::Pending,
+            TransactionStatus::Processing => NetworkTransactionStatus::Processing,
+            TransactionStatus::Completed => NetworkTransactionStatus::Completed,
+            TransactionStatus::Failed => NetworkTransactionStatus::Failed,
+            TransactionStatus::Expired => NetworkTransactionStatus::Expired,
+        }
+    }
+    
+    pub fn from_topup_status(status: &TopUpStatus) -> Self {
+        match status {
+            TopUpStatus::Pending => NetworkTransactionStatus::Pending,
+            TopUpStatus::Processing => NetworkTransactionStatus::Processing,
+            TopUpStatus::Completed => NetworkTransactionStatus::Completed,
+            TopUpStatus::Failed => NetworkTransactionStatus::Failed,
+            TopUpStatus::Expired => NetworkTransactionStatus::Expired,
+        }
+    }
+}
+
+#[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
+pub struct NetworkTransaction {
+    pub id: String,
+    pub transaction_type: NetworkTransactionType,
+    pub from_user: Option<Principal>,
+    pub to_user: Option<Principal>,
+    pub amount: u64,
+    pub fiat_amount: f64,
+    pub fiat_currency: String,
+    pub icp_amount: u64,
+    pub timestamp: u64,
+    pub status: NetworkTransactionStatus,
+    pub reference_id: String,
+    pub transaction_hash: Option<String>,
+    pub fee: Option<u64>,
+    pub description: String,
+}
