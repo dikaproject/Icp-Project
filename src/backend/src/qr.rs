@@ -4,19 +4,17 @@ use candid::Principal;
 use ic_cdk::api::time;
 use sha2::{Digest, Sha256};
 
-// QR Code management functions
-
 pub fn generate_qr_id() -> String {
     let timestamp = time();
     let caller = ic_cdk::caller();
     let combined = format!("{}-{}", timestamp, caller.to_text());
     
-    // Create SHA256 hash for shorter, unique ID
+
     let mut hasher = Sha256::new();
     hasher.update(combined.as_bytes());
     let hash = hasher.finalize();
     
-    // Take first 16 characters of hex string
+
     format!("{:x}", hash)[..16].to_string().to_uppercase()
 }
 
@@ -26,7 +24,7 @@ pub async fn create_qr_code(
     fiat_currency: String,
     description: Option<String>,
 ) -> Result<QRCode, String> {
-    // Validate inputs
+
     if fiat_amount <= 0.0 {
         return Err("Amount must be greater than 0".to_string());
     }
@@ -35,16 +33,16 @@ pub async fn create_qr_code(
         return Err(format!("Unsupported currency: {}", fiat_currency));
     }
 
-    // Fetch current exchange rate
+
     let exchange_rate = fetch_live_exchange_rate(fiat_currency.clone()).await?;
     
-    // Calculate ICP amount
+
     let icp_amount = calculate_icp_amount(fiat_amount, exchange_rate.rate)?;
 
     let qr_id = generate_qr_id();
     let current_time = time();
     
-    // QR codes expire in 30 minutes (30 * 60 * 1_000_000_000 nanoseconds)
+
     let expire_time = current_time + (30 * 60 * 1_000_000_000);
 
     let qr_code = QRCode {
@@ -89,7 +87,7 @@ pub fn generate_qr_data_url(qr_id: &str, frontend_url: &str) -> String {
 pub fn get_qr_display_info(qr_code: &QRCode) -> QRDisplayInfo {
     let current_time = time();
     let time_remaining = if current_time < qr_code.expire_time {
-        Some((qr_code.expire_time - current_time) / 1_000_000_000) // Convert to seconds
+        Some((qr_code.expire_time - current_time) / 1_000_000_000) 
     } else {
         None
     };
@@ -125,11 +123,11 @@ pub struct QRDisplayInfo {
 
 // Validate QR code format
 pub fn validate_qr_id_format(qr_id: &str) -> bool {
-    // QR ID should be 16 character uppercase hex string
+
     qr_id.len() == 16 && qr_id.chars().all(|c| c.is_ascii_hexdigit() && c.is_uppercase())
 }
 
-// Clean up expired QR codes (for periodic cleanup)
+
 pub fn is_qr_expired(qr_code: &QRCode) -> bool {
     time() > qr_code.expire_time
 }
@@ -145,7 +143,7 @@ mod tests {
         
         assert_eq!(id1.len(), 16);
         assert_eq!(id2.len(), 16);
-        assert_ne!(id1, id2); // Should be unique
+        assert_ne!(id1, id2); 
         assert!(validate_qr_id_format(&id1));
         assert!(validate_qr_id_format(&id2));
     }
@@ -153,10 +151,10 @@ mod tests {
     #[test]
     fn test_validate_qr_id_format() {
         assert!(validate_qr_id_format("1234567890ABCDEF"));
-        assert!(!validate_qr_id_format("1234567890abcdef")); // lowercase
-        assert!(!validate_qr_id_format("1234567890ABCDEG")); // invalid hex
-        assert!(!validate_qr_id_format("1234567890ABCDE")); // too short
-        assert!(!validate_qr_id_format("1234567890ABCDEF1")); // too long
+        assert!(!validate_qr_id_format("1234567890abcdef")); 
+        assert!(!validate_qr_id_format("1234567890ABCDEG")); 
+        assert!(!validate_qr_id_format("1234567890ABCDE")); 
+        assert!(!validate_qr_id_format("1234567890ABCDEF1")); 
     }
 
     #[test]

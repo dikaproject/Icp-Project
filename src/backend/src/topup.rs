@@ -38,9 +38,9 @@ pub async fn create_qris_topup(
     
     let topup_id = generate_topup_id();
     let current_time = time();
-    let expire_time = current_time + (15 * 60 * 1_000_000_000); // 15 minutes
+    let expire_time = current_time + (15 * 60 * 1_000_000_000); 
     
-    // UPDATED: Use simple function
+    
     let base_url = get_base_url();
     
     ic_cdk::println!("🌐 Using base URL: {}", base_url);
@@ -83,7 +83,7 @@ pub fn check_payment_expiration(topup: &TopUpTransaction) -> bool {
     
     match topup.payment_method {
         TopUpMethod::QRIS => {
-            // QRIS expires after 15 minutes
+            
             if !topup.payment_data.qris_data.is_empty() {
                 let qris = &topup.payment_data.qris_data[0];
                 current_time > qris.expire_time
@@ -92,12 +92,12 @@ pub fn check_payment_expiration(topup: &TopUpTransaction) -> bool {
             }
         },
         TopUpMethod::CreditCard | TopUpMethod::DebitCard => {
-            // Cards expire after 1 hour if not processed
+            
             let one_hour = 60 * 60 * 1_000_000_000u64;
             current_time > topup.created_at + one_hour
         },
         TopUpMethod::Web3Wallet => {
-            // Web3 transactions expire after 30 minutes
+            
             let thirty_minutes = 30 * 60 * 1_000_000_000u64;
             current_time > topup.created_at + thirty_minutes
         },
@@ -112,7 +112,7 @@ pub async fn create_card_topup(
     card_input: CardDataInput,
     is_credit: bool,
 ) -> Result<TopUpTransaction, String> {
-    // Validate card data (MVP - hardcoded validation)
+    
     validate_card_data(&card_input)?;
     
     let exchange_rate = fetch_live_exchange_rate(currency.clone()).await?;
@@ -133,9 +133,9 @@ pub async fn create_card_topup(
     };
     
     let payment_data = TopUpPaymentData {
-        qris_data: vec![],           // FIX: Empty Vec
-        card_data: vec![card_data],  // FIX: Wrap in Vec
-        web3_data: vec![],           // FIX: Empty Vec
+        qris_data: vec![],           
+        card_data: vec![card_data],  
+        web3_data: vec![],           
     };
     
     let method = if is_credit { TopUpMethod::CreditCard } else { TopUpMethod::DebitCard };
@@ -157,14 +157,14 @@ pub async fn create_card_topup(
     Ok(topup_transaction)
 }
 
-// MVP Card validation (hardcoded for demo)
+// MVP Card validation 
 fn validate_card_data(card_input: &CardDataInput) -> Result<(), String> {
-    // Hardcoded valid cards for MVP
+    
     let valid_cards = vec![
-        "4111111111111111", // Visa Test
-        "5555555555554444", // Mastercard Test
-        "4000000000000002", // Visa Declined Test
-        "1234567890123456", // Demo Card
+        "4111111111111111", 
+        "5555555555554444", 
+        "4000000000000002", 
+        "1234567890123456", 
     ];
     
     if !valid_cards.contains(&card_input.card_number.as_str()) {
@@ -214,9 +214,9 @@ pub async fn create_web3_topup(
     
     let web3_data = Web3Data {
         wallet_address,
-        blockchain_network: "Internet Computer".to_string(), // Fixed field name
-        transaction_hash: None,                              // Fixed field name
-        confirmation_count: 0,                               // Added field
+        blockchain_network: "Internet Computer".to_string(), 
+        transaction_hash: None,                              
+        confirmation_count: 0,                               
     };
     
     let payment_data = TopUpPaymentData {

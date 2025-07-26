@@ -65,7 +65,7 @@ const PaymentScanner = () => {
     }
   }
 
-  // Update handlePayment untuk refresh balance yang lebih reliable
+  // handlePayment 
   const handlePayment = async () => {
     if (!backend || !qrId.trim()) return
 
@@ -92,21 +92,14 @@ const PaymentScanner = () => {
         setQrInfo(null)
         setQrId('')
 
-        // ENHANCED: Debug balance refresh
         if (backend) {
           try {
-            // Wait for balance logs to be processed
             await new Promise(resolve => setTimeout(resolve, 3000))
             
-            console.log('🔍 AFTER PAYMENT: Getting updated balance...')
             const balanceAfter = await backend.getUserBalance()
-            console.log('💰 Balance after payment:', balanceAfter)
             
-            // Get balance history for debugging
             const balanceHistory = await backend.getUserBalanceHistory()
-            console.log('📜 Balance history:', balanceHistory)
             
-            // Trigger balance update event
             window.dispatchEvent(new CustomEvent('balance-updated', { 
               detail: { 
                 userBalance: balanceAfter,
@@ -119,7 +112,6 @@ const PaymentScanner = () => {
           }
         }
 
-        // Redirect dengan delay
         setTimeout(() => {
           navigate('/dashboard', { 
             state: { message: 'Payment completed successfully!' }
@@ -261,7 +253,6 @@ const PaymentScanner = () => {
             onClose={() => setShowWebcam(false)}
             onScan={(scannedData) => {
               setQrId(scannedData)
-              // Do not auto-validate, just fill the field
             }}
           />
         )}

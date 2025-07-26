@@ -79,8 +79,7 @@ thread_local! {
 }
 
 fn simple_encrypt(data: &str, password: &str) -> String {
-    // Simple XOR encryption with password hash for MVP
-    // In production, use proper encryption like AES
+
     let mut hasher = Sha256::new();
     hasher.update(password.as_bytes());
     let key = hasher.finalize();
@@ -118,7 +117,7 @@ fn simple_decrypt(encrypted_data: &str, password: &str) -> Result<String, String
 fn generate_balance_log_id() -> String {
     let timestamp = time();
     let caller = caller();
-    let random_suffix = timestamp % 1000000; // Add random suffix
+    let random_suffix = timestamp % 1000000; 
     format!("BAL_{}_{}", caller.to_text()[..8].to_string(), timestamp + random_suffix)
 }
 
@@ -129,7 +128,7 @@ fn generate_qr_usage_log_id() -> String {
 }
 
 fn get_current_balance(user_id: Principal) -> u64 {
-    // FIXED: Proper balance calculation from all logs
+
     let current_balance = BALANCE_CHANGE_LOGS.with(|logs| {
         let logs_borrow = logs.borrow();
         
@@ -140,7 +139,7 @@ fn get_current_balance(user_id: Principal) -> u64 {
             .map(|(_, log)| log.clone())
             .collect();
         
-        // If no logs, return 0
+
         if user_logs.is_empty() {
             ic_cdk::println!("🔍 No balance logs found for {}, returning 0", 
                 user_id.to_text());
@@ -150,14 +149,14 @@ fn get_current_balance(user_id: Principal) -> u64 {
         // Sort by timestamp (oldest first for sequential calculation)
         user_logs.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
         
-        // FIXED: Calculate balance sequentially through all logs
+
         let mut calculated_balance = 0u64;
         
         ic_cdk::println!("🔍 Calculating balance for {} from {} logs:", 
             user_id.to_text(), user_logs.len());
         
         for (i, log) in user_logs.iter().enumerate() {
-            // For first log, start from previous_balance
+
             if i == 0 {
                 calculated_balance = log.previous_balance;
                 ic_cdk::println!("  [{}] Starting balance: {}", i, calculated_balance);
@@ -175,11 +174,11 @@ fn get_current_balance(user_id: Principal) -> u64 {
                     calculated_balance = calculated_balance.saturating_add(log.amount);
                 }
                 BalanceChangeType::Adjustment => {
-                    calculated_balance = log.new_balance; // Direct set for adjustments
+                    calculated_balance = log.new_balance; 
                 }
             }
             
-            // FIXED: Use {:?} for debug formatting instead of {} for Display
+
             ic_cdk::println!("  [{}] {:?} {} -> balance: {} (expected: {})", 
                 i, log.change_type, log.amount, calculated_balance, log.new_balance);
             
@@ -221,14 +220,14 @@ fn create_balance_change_log(
         description,
     };
     
-    // FIXED: Use {:?} for debug formatting
+
     ic_cdk::println!("🔍 Creating balance log: id={}, user={}, type={:?}, amount={}, prev={}, new={}", 
         log.id, user_id.to_text(), change_type, amount, previous_balance, new_balance);
     
     let inserted = BALANCE_CHANGE_LOGS.with(|logs| {
         logs.borrow_mut().insert(log.id.clone(), log.clone());
         
-        // Verify insertion
+
         logs.borrow().get(&log.id).is_some()
     });
     
@@ -336,7 +335,7 @@ async fn get_wallet_identity_by_email(
     email: String,
     password: String,
 ) -> Result<WalletIdentityResult, String> {
-    // Validate inputs
+
     if email.is_empty() || !email.contains('@') {
         return Err("Valid email is required".to_string());
     }
@@ -494,7 +493,7 @@ fn get_user_by_email(email: String) -> Option<User> {
         
         ic_cdk::println!("📊 DEBUG: Total users in storage: {}", total_users);
         
-        // Debug: Print all users
+
         for (principal, user) in users_borrow.iter() {
             ic_cdk::println!("👤 DEBUG: User {} - email: {:?}", 
                 principal.to_text(), user.email);
@@ -567,7 +566,7 @@ async fn save_wallet_identity(encrypted_seed: String, wallet_name: String) -> Re
             notification_settings: current_prefs.notification_settings,
             ui_theme: current_prefs.ui_theme,
             language: current_prefs.language,
-            timezone: wallet_info, // Temporary storage in timezone field
+            timezone: wallet_info, 
             updated_at: ic_cdk::api::time(),
         };
 
@@ -647,7 +646,7 @@ async fn update_user_profile(username: Option<String>, email: Option<String>) ->
         let mut users_borrow = users.borrow_mut();
         match users_borrow.get(&caller) {
             Some(mut user) => {
-                // MUTABLE update for profile data
+
                 user.username = username;
                 user.email = email;
                 users_borrow.insert(caller, user.clone());
@@ -676,7 +675,7 @@ async fn update_user_preferences(
         let mut prefs_borrow = prefs.borrow_mut();
         
         let mut preferences = prefs_borrow.get(&caller).unwrap_or_else(|| {
-            // Create default preferences if not exists
+
             UserPreferences {
                 user_id: caller,
                 preferred_currency: "USD".to_string(),
@@ -813,7 +812,7 @@ fn get_all_qr_usage_logs() -> Vec<QRUsageLog> {
             .map(|(_, log)| log.clone())
             .collect();
         
-        // Sort by timestamp (newest first)
+
         all_logs.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
         all_logs
     })
@@ -827,7 +826,7 @@ async fn create_qris_topup(
 ) -> Result<TopUpTransaction, String> {
     let caller = caller();
     
-    // Debug print
+
     ic_cdk::print(format!("Creating QRIS topup: amount={}, currency={}, caller={}", amount, currency, caller));
     
     let user_exists = USERS.with(|users| users.borrow().contains_key(&caller));
@@ -851,7 +850,7 @@ async fn create_qris_topup(
     Ok(topup)
 }
 
-// Update fungsi create_card_topup untuk avoid double borrowing
+
 
 #[update]
 #[candid_method(update)]
@@ -863,7 +862,7 @@ async fn create_card_topup(
 ) -> Result<TopUpTransaction, String> {
     let caller = caller();
     
-    // Validate user exists
+
     let user_exists = USERS.with(|users| users.borrow().contains_key(&caller));
     if !user_exists {
         return Err("User not registered".to_string());
@@ -875,7 +874,7 @@ async fn create_card_topup(
     
     let current_time = time();
     
-    // Create initial PENDING topup transaction
+
     let pending_topup = topup::create_card_topup(caller, amount, currency, card_data, is_credit).await?;
     
     TOPUP_TRANSACTIONS.with(|topups| {
@@ -884,7 +883,7 @@ async fn create_card_topup(
     
     ic_cdk::println!("📝 Created PENDING card topup: {}", pending_topup.id);
     
-    // Create PROCESSING topup record (NEW ID)
+
     let processing_topup = TopUpTransaction {
         id: format!("{}_PROCESSING_{}", pending_topup.id, current_time),
         user_id: pending_topup.user_id,
@@ -905,11 +904,11 @@ async fn create_card_topup(
     
     ic_cdk::println!("⚙️ Created PROCESSING card topup: {}", processing_topup.id);
     
-    // Simulate card processing
+
     let success = simulate_card_processing(&processing_topup);
     
     if success {
-        // Update user balance (create new user record)
+
         let balance_updated = USERS.with(|users| {
             let mut users_borrow = users.borrow_mut();
             if let Some(user) = users_borrow.get(&caller) {
@@ -930,7 +929,7 @@ async fn create_card_topup(
         });
         
         if !balance_updated {
-            // Create FAILED topup record (NEW ID)
+
             let failed_topup = TopUpTransaction {
                 id: format!("{}_FAILED_{}", pending_topup.id, current_time + 1),
                 user_id: pending_topup.user_id,
@@ -953,7 +952,7 @@ async fn create_card_topup(
             return Err("Failed to update user balance".to_string());
         }
         
-        // Create COMPLETED topup record (NEW ID)
+
         let completed_topup = TopUpTransaction {
             id: format!("{}_COMPLETED_{}", pending_topup.id, current_time + 2),
             user_id: pending_topup.user_id,
@@ -975,7 +974,7 @@ async fn create_card_topup(
         ic_cdk::println!("✅ Created COMPLETED card topup: {}", completed_topup.id);
         Ok(completed_topup)
     } else {
-        // Create FAILED topup record (NEW ID)
+
         let failed_topup = TopUpTransaction {
             id: format!("{}_FAILED_{}", pending_topup.id, current_time + 1),
             user_id: pending_topup.user_id,
@@ -1015,7 +1014,7 @@ async fn claim_qris_payment(topup_id: String) -> Result<TopUpTransaction, String
     let current_time = time();
     
     if is_topup_expired(&original_topup) {
-        // Create EXPIRED topup record (NEW ID)
+
         let expired_topup = TopUpTransaction {
             id: format!("{}_EXPIRED_{}", original_topup.id, current_time),
             user_id: original_topup.user_id,
@@ -1038,7 +1037,7 @@ async fn claim_qris_payment(topup_id: String) -> Result<TopUpTransaction, String
         return Err("Top-up expired".to_string());
     }
     
-    // Create PROCESSING topup record (NEW ID)
+
     let processing_topup = TopUpTransaction {
         id: format!("{}_PROCESSING_{}", original_topup.id, current_time),
         user_id: original_topup.user_id,
@@ -1059,7 +1058,7 @@ async fn claim_qris_payment(topup_id: String) -> Result<TopUpTransaction, String
     
     ic_cdk::println!("⚙️ Created PROCESSING topup: {}", processing_topup.id);
     
-    // Create IMMUTABLE balance change log instead of updating user balance
+
     let current_balance = get_current_balance(original_topup.user_id);
     let new_balance = current_balance.saturating_add(original_topup.amount);
     
@@ -1073,7 +1072,7 @@ async fn claim_qris_payment(topup_id: String) -> Result<TopUpTransaction, String
         format!("QRIS topup completed: {} {}", original_topup.fiat_amount, original_topup.fiat_currency),
     );
     
-    // Create COMPLETED topup record (NEW ID)
+
     let completed_topup = TopUpTransaction {
         id: format!("{}_COMPLETED_{}", original_topup.id, current_time + 2),
         user_id: original_topup.user_id,
@@ -1126,12 +1125,12 @@ fn get_user_topup_history() -> Vec<TopUpTransaction> {
 
 // MVP Card processing simulation
 fn simulate_card_processing(topup: &TopUpTransaction) -> bool {
-    // Simulate different outcomes based on card data
+
     if !topup.payment_data.card_data.is_empty() {
         let card = &topup.payment_data.card_data[0];
-        return !card.card_number.contains("0002"); // Decline test card
+        return !card.card_number.contains("0002"); 
     }
-    true // Default success
+    true 
 }
 
 // ===================
@@ -1159,10 +1158,10 @@ async fn fetch_exchange_rate(currency: String) -> Result<ExchangeRate, String> {
         }
     }
 
-    // Try to fetch fresh rate with retry logic
+
     match fetch_exchange_rate_with_retry_internal(currency_upper.clone(), cached_rate.clone()).await {
         Ok(exchange_rate) => {
-            // Cache the fresh rate
+
             EXCHANGE_RATES.with(|rates| {
                 rates.borrow_mut().insert(currency_upper.clone(), exchange_rate.clone());
             });
@@ -1173,7 +1172,7 @@ async fn fetch_exchange_rate(currency: String) -> Result<ExchangeRate, String> {
         Err(e) => {
             ic_cdk::println!("❌ Failed to fetch fresh rate: {}", e);
             
-            // Gunakan cache stale jika ada
+
             if let Some(cached) = cached_rate {
                 let age_minutes = (ic_cdk::api::time() - cached.timestamp) / (60 * 1_000_000_000);
                 
@@ -1184,7 +1183,7 @@ async fn fetch_exchange_rate(currency: String) -> Result<ExchangeRate, String> {
                     source: format!("coingecko_stale_{}min", age_minutes),
                 };
                 
-                // Update cache with disclaimer
+
                 EXCHANGE_RATES.with(|rates| {
                     rates.borrow_mut().insert(currency_upper.clone(), stale_rate.clone());
                 });
@@ -1217,7 +1216,7 @@ fn get_cached_exchange_rate_with_validity(currency: String) -> Option<(ExchangeR
     })
 }
 
-// Add new function to force refresh rate (for testing)
+
 #[update]
 #[candid_method(update)]
 async fn force_refresh_exchange_rate(currency: String) -> Result<ExchangeRate, String> {
@@ -1373,7 +1372,7 @@ async fn process_payment(qr_id: String, transaction_hash: Option<String>) -> Res
     let base_tx_id = generate_transaction_id(caller, qr_code.user_id, qr_code.icp_amount);
     let current_time = time();
 
-    // Step 1: Create PENDING transaction
+
     let pending_tx = Transaction {
         id: format!("{}_PENDING_{}", base_tx_id, current_time),
         from: caller,
@@ -1395,7 +1394,7 @@ async fn process_payment(qr_id: String, transaction_hash: Option<String>) -> Res
 
     ic_cdk::println!("📝 Created PENDING transaction: {}", pending_tx.id);
 
-    // Step 2: Create PROCESSING transaction  
+
     let processing_tx = Transaction {
         id: format!("{}_PROCESSING_{}", base_tx_id, current_time + 1),
         from: caller,
@@ -1417,11 +1416,11 @@ async fn process_payment(qr_id: String, transaction_hash: Option<String>) -> Res
 
     ic_cdk::println!("⚙️ Created PROCESSING transaction: {}", processing_tx.id);
 
-    // Step 3: Create IMMUTABLE balance change logs
+
     let fee_amount = calculate_transaction_fee(qr_code.icp_amount);
     let base_time = time();
     
-    // FIXED: Proper balance calculations
+
     let total_deduction = qr_code.icp_amount + fee_amount;
     let payer_new_balance = payer_balance.saturating_sub(total_deduction);
     let recipient_new_balance = recipient_balance.saturating_add(qr_code.icp_amount);
@@ -1431,9 +1430,7 @@ async fn process_payment(qr_id: String, transaction_hash: Option<String>) -> Res
     ic_cdk::println!("💰 Balance transitions: payer {} -> {}, recipient {} -> {}", 
         payer_balance, payer_new_balance, recipient_balance, recipient_new_balance);
     
-    // FIXED: Create logs with unique IDs and proper sequence
-    
-    // Log 1: Payer's payment sent (amount only, not including fee)
+
     let payment_sent_log = BalanceChangeLog {
         id: format!("BAL_PAYMENT_{}_{}", processing_tx.id, base_time),
         user_id: caller,
@@ -1453,7 +1450,7 @@ async fn process_payment(qr_id: String, transaction_hash: Option<String>) -> Res
     ic_cdk::println!("📝 Created PaymentSent log: {} (amount={}, prev={}, new={})", 
         payment_sent_log.id, payment_sent_log.amount, payment_sent_log.previous_balance, payment_sent_log.new_balance);
     
-    // Log 2: Fee deduction from payer
+
     let fee_deducted_log = BalanceChangeLog {
         id: format!("BAL_FEE_{}_{}", processing_tx.id, base_time + 1),
         user_id: caller,
@@ -1473,7 +1470,7 @@ async fn process_payment(qr_id: String, transaction_hash: Option<String>) -> Res
     ic_cdk::println!("📝 Created FeeDeducted log: {} (amount={}, prev={}, new={})", 
         fee_deducted_log.id, fee_deducted_log.amount, fee_deducted_log.previous_balance, fee_deducted_log.new_balance);
     
-    // Log 3: Recipient's balance increase
+
     let payment_received_log = BalanceChangeLog {
         id: format!("BAL_RECEIVED_{}_{}", processing_tx.id, base_time + 2),
         user_id: qr_code.user_id,
@@ -1493,7 +1490,7 @@ async fn process_payment(qr_id: String, transaction_hash: Option<String>) -> Res
     ic_cdk::println!("📝 Created PaymentReceived log: {} (amount={}, prev={}, new={})", 
         payment_received_log.id, payment_received_log.amount, payment_received_log.previous_balance, payment_received_log.new_balance);
 
-    // Step 4: Create COMPLETED transaction
+
     let completed_tx = Transaction {
         id: format!("{}_COMPLETED_{}", base_tx_id, current_time + 2),
         from: caller,
@@ -1513,7 +1510,7 @@ async fn process_payment(qr_id: String, transaction_hash: Option<String>) -> Res
         transactions.borrow_mut().insert(completed_tx.id.clone(), completed_tx.clone());
     });
 
-    // Step 5: Create IMMUTABLE QR usage log
+
     create_qr_usage_log(
         qr_id.clone(),
         qr_code.user_id,
@@ -1525,7 +1522,7 @@ async fn process_payment(qr_id: String, transaction_hash: Option<String>) -> Res
     ic_cdk::println!("✅ Created COMPLETED transaction: {}", completed_tx.id);
     ic_cdk::println!("Payment processed: {} -> {}", caller.to_text(), qr_code.user_id.to_text());
 
-    // Return the final transaction (COMPLETED)
+
     Ok(completed_tx)
 }
 
@@ -1534,7 +1531,7 @@ async fn process_payment(qr_id: String, transaction_hash: Option<String>) -> Res
 fn get_all_network_transactions() -> Vec<NetworkTransaction> {
     let mut network_transactions = Vec::new();
     
-    // Add payment transactions
+
     TRANSACTIONS.with(|transactions| {
         for (_, tx) in transactions.borrow().iter() {
             network_transactions.push(NetworkTransaction {
@@ -1549,20 +1546,20 @@ fn get_all_network_transactions() -> Vec<NetworkTransaction> {
                 timestamp: tx.timestamp,
                 status: NetworkTransactionStatus::from_transaction_status(&tx.status),
                 reference_id: tx.qr_id.clone(),
-                transaction_hash: tx.transaction_hash.clone(), // This is already Option<String>
-                fee: Some(tx.fee), // Always include fee for payments
+                transaction_hash: tx.transaction_hash.clone(), 
+                fee: Some(tx.fee), 
                 description: format!("Payment: {} {}", tx.fiat_amount, tx.fiat_currency),
             });
         }
     });
     
-    // Add topup transactions
+    //  topup transactions
     TOPUP_TRANSACTIONS.with(|topups| {
         for (_, topup) in topups.borrow().iter() {
             network_transactions.push(NetworkTransaction {
                 id: topup.id.clone(),
                 transaction_type: NetworkTransactionType::Topup,
-                from_user: None, // Topups don't have from_user
+                from_user: None, 
                 to_user: Some(topup.user_id),
                 amount: topup.amount,
                 fiat_amount: topup.fiat_amount,
@@ -1571,8 +1568,8 @@ fn get_all_network_transactions() -> Vec<NetworkTransaction> {
                 timestamp: topup.created_at,
                 status: NetworkTransactionStatus::from_topup_status(&topup.status),
                 reference_id: topup.reference_id.clone(),
-                transaction_hash: None, // Topups don't have transaction hash
-                fee: None, // Topups don't have fees
+                transaction_hash: None, 
+                fee: None, 
                 description: format!("Top-up via {}: {} {}", 
                     get_topup_method_string(&topup.payment_method),
                     topup.fiat_amount, 
@@ -1650,7 +1647,7 @@ fn get_user_transaction_summaries() -> Vec<TransactionSummary> {
 #[candid_method(query)]
 fn get_recent_transactions_public() -> Vec<Transaction> {
     let current_time = ic_cdk::api::time();
-    let twenty_four_hours = 24 * 60 * 60 * 1_000_000_000; // 24 hours in nanoseconds
+    let twenty_four_hours = 24 * 60 * 60 * 1_000_000_000; 
     let cutoff_time = current_time.saturating_sub(twenty_four_hours);
     
     TRANSACTIONS.with(|transactions| {
@@ -1668,13 +1665,13 @@ fn get_recent_transactions_public() -> Vec<Transaction> {
 fn get_user_stats() -> Option<UserStats> {
     let caller = caller();
     
-    // Calculate current balance from logs
+
     let current_balance = get_current_balance(caller);
     
     ic_cdk::println!("📊 Calculating stats for {}: current_balance={}", 
         caller.to_text(), current_balance);
     
-    // Calculate transaction stats from balance logs
+
     let (total_sent, total_received, total_topup, topup_count) = BALANCE_CHANGE_LOGS.with(|logs| {
         let mut sent = 0u64;
         let mut received = 0u64;
@@ -1865,11 +1862,10 @@ fn post_upgrade() {
 
 #[heartbeat]
 fn heartbeat() {
-    // Periodic cleanup can be added here
-    // For now, just a simple heartbeat
+
 }
 
-// Export candid interface
+
 ic_cdk::export_candid!();
 
 #[query]
@@ -1882,7 +1878,7 @@ fn get_supported_currencies_list() -> Vec<String> {
 // TESTING HELPER FUNCTIONS
 // ===================
 
-// Helper function to age existing cache using existing rates.rs functions
+
 #[update]
 #[candid_method(update)]
 async fn age_cache(currency: String, age_minutes: u64) -> Result<String, String> {
@@ -1892,7 +1888,7 @@ async fn age_cache(currency: String, age_minutes: u64) -> Result<String, String>
         let mut rates_borrow = rates.borrow_mut();
         
         if let Some(rate) = rates_borrow.get(&currency_upper) {
-            // Create new rate with older timestamp
+
             let new_timestamp = ic_cdk::api::time() - (age_minutes * 60 * 1_000_000_000);
             
             let aged_rate = ExchangeRate {
@@ -1919,7 +1915,7 @@ fn get_cache_status(currency: String) -> String {
     EXCHANGE_RATES.with(|rates| {
         match rates.borrow().get(&currency_upper) {
             Some(rate) => {
-                // Use the existing functions from rates.rs
+
                 let age_minutes = get_cache_age_minutes(rate);
                 let is_valid = is_rate_cache_valid(rate);
                 
@@ -1933,7 +1929,7 @@ fn get_cache_status(currency: String) -> String {
     })
 }
 
-// Create test stale cache using existing validation
+
 #[update]
 #[candid_method(update)]
 async fn create_test_stale_cache(currency: String, rate_value: f64) -> Result<String, String> {
@@ -1943,7 +1939,7 @@ async fn create_test_stale_cache(currency: String, rate_value: f64) -> Result<St
         return Err(format!("Unsupported currency: {}", currency_upper));
     }
     
-    // Create cache that's 10 minutes old (definitely stale)
+
     let old_timestamp = ic_cdk::api::time() - (10 * 60 * 1_000_000_000);
     
     let stale_rate = ExchangeRate {
@@ -1953,7 +1949,7 @@ async fn create_test_stale_cache(currency: String, rate_value: f64) -> Result<St
         source: "test_stale".to_string(),
     };
     
-    // Verify it's actually stale using existing function
+
     let is_valid = is_rate_cache_valid(&stale_rate);
     let age_minutes = get_cache_age_minutes(&stale_rate);
     
@@ -1967,7 +1963,7 @@ async fn create_test_stale_cache(currency: String, rate_value: f64) -> Result<St
     ))
 }
 
-// Create test recent cache (within 5 minutes)
+
 #[update]
 #[candid_method(update)]
 async fn create_test_recent_cache(currency: String, rate_value: f64) -> Result<String, String> {
@@ -1977,7 +1973,7 @@ async fn create_test_recent_cache(currency: String, rate_value: f64) -> Result<S
         return Err(format!("Unsupported currency: {}", currency_upper));
     }
     
-    // Create cache that's 3 minutes old (recent)
+
     let recent_timestamp = ic_cdk::api::time() - (3 * 60 * 1_000_000_000);
     
     let recent_rate = ExchangeRate {
@@ -1987,7 +1983,7 @@ async fn create_test_recent_cache(currency: String, rate_value: f64) -> Result<S
         source: "test_recent".to_string(),
     };
     
-    // Verify it's valid using existing function
+
     let is_valid = is_rate_cache_valid(&recent_rate);
     let age_minutes = get_cache_age_minutes(&recent_rate);
     
@@ -2001,7 +1997,7 @@ async fn create_test_recent_cache(currency: String, rate_value: f64) -> Result<S
     ))
 }
 
-// Clear cache for testing
+
 #[update]
 #[candid_method(update)]
 async fn clear_cache(currency: String) -> Result<String, String> {
@@ -2069,7 +2065,7 @@ fn get_network_stats() -> NetworkStats {
             if matches!(tx.status, TransactionStatus::Completed) {
                 total_icp_volume += tx.amount;
                 
-                // Update currency stats
+
                 let currency_stat = currency_map.entry(tx.fiat_currency.clone()).or_insert(CurrencyStatInfo {
                     currency: tx.fiat_currency.clone(),
                     usage_count: 0,
@@ -2250,7 +2246,7 @@ async fn end_user_session(session_id: String) -> Result<String, String> {
         let mut sessions_borrow = sessions.borrow_mut();
         match sessions_borrow.get(&session_id) {
             Some(mut session) => {
-                // MUTABLE update for session data
+
                 session.is_active = false;
                 sessions_borrow.insert(session_id.clone(), session);
                 Ok("Session ended".to_string())

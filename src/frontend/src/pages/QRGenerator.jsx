@@ -36,14 +36,14 @@ const QRGenerator = () => {
   const [exchangeRate, setExchangeRate] = useState(null)
   const [copied, setCopied] = useState(false)
 
-  // UPDATED: Hardcode supported currencies dengan info lengkap
+  // Hardcode supported currencies 
   const supportedCurrencies = [
     { 
       code: 'IDR', 
       symbol: 'Rp', 
       name: 'Indonesian Rupiah',
       country: 'Indonesia',
-      countryCode: 'ID' // ISO country code for flag
+      countryCode: 'ID' 
     },
     { 
       code: 'USD', 
@@ -68,7 +68,7 @@ const QRGenerator = () => {
     }
   ]
 
-  // Updated flag component
+  // flag component
   const FlagIcon = ({ countryCode, size = 24 }) => (
     <Flag 
       code={countryCode} 
@@ -150,7 +150,7 @@ const QRGenerator = () => {
     return (Number(amount) / 100_000_000).toFixed(6)
   }
 
-  // UPDATED: Better currency formatting
+  // currency formatting
   const formatCurrency = (amount, currencyCode) => {
     const currInfo = getCurrencyInfo(currencyCode)
     const numAmount = parseFloat(amount)

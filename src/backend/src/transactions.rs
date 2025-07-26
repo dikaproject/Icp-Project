@@ -4,11 +4,9 @@ use candid::Principal;
 use ic_cdk::api::time;
 use sha2::{Digest, Sha256};
 
-// Transaction management functions
-
 pub fn generate_transaction_id(from: Principal, to: Principal, amount: u64) -> String {
     let timestamp = time();
-    let random_part = timestamp % 1000000; // Add randomness
+    let random_part = timestamp % 1000000; 
     let data = format!("{}-{}-{}-{}-{}", from.to_text(), to.to_text(), amount, timestamp, random_part);
     
     let mut hasher = Sha256::new();
@@ -23,12 +21,10 @@ pub fn create_transaction(
     payer: Principal,
     transaction_hash: Option<String>,
 ) -> Result<Transaction, String> {
-    // Validate QR code
     is_qr_code_valid(qr_code)?;
     
     let tx_id = generate_transaction_id(payer, qr_code.user_id, qr_code.icp_amount);
     
-    // Calculate transaction fee (1% or minimum 0.0001 ICP)
     let fee = calculate_transaction_fee(qr_code.icp_amount);
     
     let transaction = Transaction {
@@ -50,9 +46,8 @@ pub fn create_transaction(
 }
 
 pub fn calculate_transaction_fee(amount: u64) -> u64 {
-    // 1% fee with minimum of 0.0001 ICP (10,000 e8s)
     let percentage_fee = amount / 100;
-    let minimum_fee = 10_000; // 0.0001 ICP in e8s
+    let minimum_fee = 10_000; 
     
     std::cmp::max(percentage_fee, minimum_fee)
 }
@@ -63,12 +58,10 @@ pub fn validate_transaction_amount(amount: u64) -> Result<(), String> {
         return Err("Transaction amount cannot be zero".to_string());
     }
     
-    // Minimum transaction: 0.001 ICP (100,000 e8s)
     if amount < 100_000 {
         return Err("Transaction amount too small. Minimum: 0.001 ICP".to_string());
     }
     
-    // Maximum transaction: 1000 ICP (100,000,000,000 e8s)
     if amount > 100_000_000_000 {
         return Err("Transaction amount too large. Maximum: 1000 ICP".to_string());
     }
@@ -96,10 +89,10 @@ pub fn calculate_user_stats(transactions: &[Transaction], user_id: Principal) ->
         total_sent,
         total_received,
         transaction_count,
-        qr_codes_generated: 0, // This should be calculated separately
-        total_topup: 0,        // Add missing field
-        topup_count: 0,        // Add missing field
-        current_balance: 0,    // Add missing field
+        qr_codes_generated: 0, 
+        total_topup: 0,        
+        topup_count: 0,        
+        current_balance: 0,    
     }
 }
 
@@ -130,7 +123,7 @@ pub fn get_user_transactions(
 // Get recent transactions (last 24 hours)
 pub fn get_recent_transactions(transactions: &[Transaction]) -> Vec<Transaction> {
     let current_time = time();
-    let twenty_four_hours = 24 * 60 * 60 * 1_000_000_000; // 24 hours in nanoseconds
+    let twenty_four_hours = 24 * 60 * 60 * 1_000_000_000; 
     let cutoff_time = current_time.saturating_sub(twenty_four_hours);
     
     transactions
@@ -202,7 +195,6 @@ pub fn find_expired_transactions(transactions: &[Transaction]) -> Vec<String> {
     
     for tx in transactions {
         if matches!(tx.status, TransactionStatus::Pending) {
-            // Transactions expire after 1 hour
             let expiry_time = tx.timestamp + (60 * 60 * 1_000_000_000);
             if current_time > expiry_time {
                 expired_ids.push(tx.id.clone());
@@ -228,23 +220,23 @@ mod tests {
         
         assert!(id1.starts_with("tx_"));
         assert!(id2.starts_with("tx_"));
-        assert_ne!(id1, id2); // Should be unique due to timestamp
+        assert_ne!(id1, id2); 
     }
 
     #[test]
     fn test_calculate_transaction_fee() {
-        assert_eq!(calculate_transaction_fee(1_000_000), 10_000); // 1% of 0.01 ICP = minimum fee
-        assert_eq!(calculate_transaction_fee(10_000_000), 100_000); // 1% of 0.1 ICP
-        assert_eq!(calculate_transaction_fee(1000), 10_000); // Below minimum, use minimum
+        assert_eq!(calculate_transaction_fee(1_000_000), 10_000); 
+        assert_eq!(calculate_transaction_fee(10_000_000), 100_000); 
+        assert_eq!(calculate_transaction_fee(1000), 10_000); 
     }
 
     #[test]
     fn test_validate_transaction_amount() {
-        assert!(validate_transaction_amount(100_000).is_ok()); // Minimum amount
-        assert!(validate_transaction_amount(50_000_000_000).is_ok()); // Normal amount
-        assert!(validate_transaction_amount(99_999).is_err()); // Below minimum
-        assert!(validate_transaction_amount(0).is_err()); // Zero amount
-        assert!(validate_transaction_amount(100_000_000_001).is_err()); // Above maximum
+        assert!(validate_transaction_amount(100_000).is_ok()); 
+        assert!(validate_transaction_amount(50_000_000_000).is_ok()); 
+        assert!(validate_transaction_amount(99_999).is_err()); 
+        assert!(validate_transaction_amount(0).is_err()); 
+        assert!(validate_transaction_amount(100_000_000_001).is_err()); 
     }
 
     #[test]

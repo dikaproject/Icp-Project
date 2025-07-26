@@ -24,7 +24,7 @@ import {
 const NetworkStats = () => {
   const { backend } = useICP()
   const [networkStats, setNetworkStats] = useState(null)
-  const [allTransactions, setAllTransactions] = useState([]) // Network transactions (payments + topups)
+  const [allTransactions, setAllTransactions] = useState([]) 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedTimeframe, setSelectedTimeframe] = useState('24h')
@@ -84,11 +84,9 @@ const NetworkStats = () => {
           converted[key] = null
         }
       } else {
-        // For regular arrays, convert each item but keep as array
         converted[key] = convertBigIntInObject(converted[key])
       }
     } else if (typeof converted[key] === 'object' && converted[key] !== null) {
-      // Recursively convert nested objects
       converted[key] = convertBigIntInObject(converted[key])
     }
   })
@@ -130,16 +128,15 @@ const NetworkStats = () => {
     const transactions = await backend.getAllNetworkTransactions()
     console.log('Raw network transactions:', transactions)
     
-    // FIXED: Ensure we have a proper array
+    // Ensure we have a proper array
     if (Array.isArray(transactions)) {
       const convertedTransactions = convertBigIntInObject(transactions)
       console.log('Converted network transactions:', convertedTransactions)
       
-      // FIXED: Verify it's still an array after conversion
+      // Verify it's still an array after conversion
       if (Array.isArray(convertedTransactions)) {
         setAllTransactions(convertedTransactions)
         
-        // Debug: Check first transaction structure
         if (convertedTransactions.length > 0) {
           console.log('🔍 First converted transaction:', convertedTransactions[0])
           console.log('🔍 Status structure:', convertedTransactions[0].status)
@@ -202,7 +199,6 @@ const NetworkStats = () => {
   }
 
   const getStatusIcon = (status) => {
-    // Handle both old and new status objects
     let statusStr = status
     if (typeof status === 'object' && status !== null) {
       statusStr = Object.keys(status)[0]

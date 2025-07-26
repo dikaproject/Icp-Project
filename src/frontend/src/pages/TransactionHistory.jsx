@@ -39,11 +39,9 @@ const TransactionHistory = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
-  const [viewMode, setViewMode] = useState('transactions') // 'transactions', 'topups', 'balance'
+  const [viewMode, setViewMode] = useState('transactions') 
 
-  // Helper function to get status text from Candid variant
   const getStatusText = (status) => {
-    // Handle Candid variant object
     if (typeof status === 'object' && status !== null) {
       const key = Object.keys(status)[0]
       switch (key) {
@@ -70,7 +68,6 @@ const TransactionHistory = () => {
       }
     }
 
-    // Handle string (fallback)
     switch (status) {
       case 'Pending':
         return 'Pending'
@@ -95,9 +92,7 @@ const TransactionHistory = () => {
     }
   }
 
-  // Helper function to get status color
   const getStatusColor = (status) => {
-    // Handle Candid variant object
     const statusText = getStatusText(status).toLowerCase()
 
     switch (statusText) {
@@ -141,15 +136,12 @@ const TransactionHistory = () => {
     try {
       setLoading(true)
 
-      // Fetch regular transactions
       const transactionsData = await backend.getUserTransactionSummaries()
       setTransactions(transactionsData)
 
-      // Fetch topup history
       const topupsData = await backend.getUserTopupHistory()
       setTopups(topupsData)
 
-      // Fetch balance history
       const balanceData = await getUserBalanceHistory()
       setBalanceHistory(balanceData)
 
@@ -210,9 +202,7 @@ const TransactionHistory = () => {
     }
   }
 
-  // Update function untuk handle Candid variant
   const getChangeTypeText = (changeType) => {
-    // Handle Candid variant object
     if (typeof changeType === 'object' && changeType !== null) {
       const key = Object.keys(changeType)[0]
       switch (key) {
@@ -233,7 +223,6 @@ const TransactionHistory = () => {
       }
     }
 
-    // Handle string (fallback)
     switch (changeType) {
       case 'TopupCompleted':
         return 'Top-up Completed'
@@ -253,7 +242,6 @@ const TransactionHistory = () => {
   }
 
   const getBalanceChangeIcon = (changeType) => {
-    // Handle Candid variant object
     const key = typeof changeType === 'object' ? Object.keys(changeType)[0] : changeType
 
     switch (key) {
@@ -303,7 +291,6 @@ const TransactionHistory = () => {
   }
 
   const getBalanceChangeColor = (changeType) => {
-    // Handle Candid variant object
     const key = typeof changeType === 'object' ? Object.keys(changeType)[0] : changeType
 
     switch (key) {
@@ -343,14 +330,12 @@ const TransactionHistory = () => {
   }
 
   const formatBalanceChange = (changeType, amount) => {
-    // Handle Candid variant object
     const key = typeof changeType === 'object' ? Object.keys(changeType)[0] : changeType
 
     const sign = ['TopupCompleted', 'PaymentReceived', 'Refund'].includes(key) ? '+' : '-'
     return `${sign}${formatICP(amount)} ICP`
   }
 
-  // Combine and filter transactions
   const combinedTransactions = [
     ...transactions.map(tx => ({
       ...tx,
@@ -373,7 +358,6 @@ const TransactionHistory = () => {
     }))
   ].sort((a, b) => Number(b.timestamp) - Number(a.timestamp))
 
-  // Filter balance history
   const filteredBalanceHistory = balanceHistory.filter(item => {
     const matchesSearch = searchTerm === '' ||
       item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -382,12 +366,10 @@ const TransactionHistory = () => {
     return matchesSearch
   })
 
-  // Remove duplicates for display
   const uniqueTransactions = []
   const seenIds = new Set()
 
   combinedTransactions.forEach(tx => {
-    // Use the actual transaction ID for uniqueness, not reference IDs
     const uniqueId = `${tx.type}-${tx.id}`
     if (!seenIds.has(uniqueId)) {
       seenIds.add(uniqueId)
@@ -410,14 +392,12 @@ const TransactionHistory = () => {
     return matchesSearch && matchesStatus && matchesType
   })
 
-  // FIXED: Add pagination
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
   const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const paginatedTransactions = filteredTransactions.slice(startIndex, startIndex + itemsPerPage)
 
-  // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1)
   }, [searchTerm, statusFilter, typeFilter])
@@ -644,7 +624,7 @@ const TransactionHistory = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {/* FIXED: Use paginated transactions */}
+                    {/* Use paginated transactions */}
                     {paginatedTransactions.map((item) => (
                       <div key={`${item.type}-${item.id}`} className="flex flex-col lg:flex-row lg:items-center justify-between p-4 lg:p-6 bg-[#181A20] rounded-2xl border border-[#23253B] hover:bg-[#262840] transition-all duration-200 space-y-4 lg:space-y-0">
                         {/* FIXED: Mobile responsive layout */}
@@ -672,7 +652,6 @@ const TransactionHistory = () => {
                           </div>
                         </div>
 
-                        {/* FIXED: Mobile responsive amounts and status */}
                         <div className="flex flex-col lg:flex-row lg:items-center space-y-3 lg:space-y-0 lg:space-x-6">
                           <div className="text-left lg:text-right">
                             <div className="font-bold text-[#F5F6FA] text-lg lg:text-xl mb-1">
@@ -691,7 +670,7 @@ const TransactionHistory = () => {
                       </div>
                     ))}
 
-                    {/* FIXED: Add pagination controls */}
+                    {/* pagination controls */}
                     {totalPages > 1 && (
                       <div className="flex flex-col lg:flex-row lg:items-center justify-between pt-6 border-t border-[#23253B] space-y-4 lg:space-y-0">
                         <div className="text-[#B3B3C2] text-sm text-center lg:text-left">

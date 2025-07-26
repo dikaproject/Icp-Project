@@ -7,7 +7,7 @@ use serde_json;
 // Rate limiting configuration
 const MAX_RETRIES: u32 = 3;
 const RETRY_DELAY_SECONDS: u64 = 2;
-const RATE_CACHE_DURATION_SECONDS: u64 = 300; // 5 minutes
+const RATE_CACHE_DURATION_SECONDS: u64 = 300; 
 
 // Enhanced exchange rate fetching with cache-only fallback
 pub async fn fetch_exchange_rate_with_retry(currency: String) -> Result<ExchangeRate, String> {
@@ -33,7 +33,7 @@ pub async fn fetch_exchange_rate_with_retry_internal(currency: String, cached_ra
             Err(e) => {
                 ic_cdk::println!("❌ Attempt {} failed: {}", attempt, e);
                 
-                // If rate limiting error (429), use cached rate if available and recent
+                
                 if e.contains("429") {
                     ic_cdk::println!("⚠️ Rate limited, checking cached rate...");
                     
@@ -47,19 +47,19 @@ pub async fn fetch_exchange_rate_with_retry_internal(currency: String, cached_ra
                     }
                 }
                 
-                // For other errors, fail immediately
+                
                 if !e.contains("429") && !e.contains("timeout") {
                     return Err(format!("API error: {}", e));
                 }
                 
-                // Wait before retry (exponential backoff)
+                
                 if attempt < MAX_RETRIES {
                     let delay = RETRY_DELAY_SECONDS * (attempt as u64);
                     ic_cdk::println!("⏳ Waiting {} seconds before retry...", delay);
                     
-                    // Simple delay simulation (in real implementation, use timer)
+                    
                     for _ in 0..delay {
-                        // Small delay loop
+                        
                     }
                 }
             }
@@ -71,7 +71,7 @@ pub async fn fetch_exchange_rate_with_retry_internal(currency: String, cached_ra
         let age_minutes = get_cache_age_minutes(&cached);
         ic_cdk::println!("⚠️ All attempts failed, using cached {} rate ({} min old)", currency_upper, age_minutes);
         
-        // Modify the cached rate to include disclaimer in source
+        
         let mut rate_with_disclaimer = cached.clone();
         rate_with_disclaimer.source = if age_minutes <= 5 {
             format!("coingecko_cached_{}min", age_minutes)
@@ -87,9 +87,7 @@ pub async fn fetch_exchange_rate_with_retry_internal(currency: String, cached_ra
 
 // Get cached rate if it's still valid
 fn get_cached_rate_if_valid(_currency: &str) -> Option<ExchangeRate> {
-    // This would be implemented with access to the cache
-    // For now, return None as we'll implement this in lib.rs
-    // The cache access will be handled in the calling function in lib.rs
+
     None
 }
 
@@ -135,12 +133,12 @@ pub async fn fetch_live_exchange_rate(currency: String) -> Result<ExchangeRate, 
         Ok((response,)) => {
             ic_cdk::println!("📊 HTTP Response status: {}", response.status);
             
-            // Enhanced status code handling - convert Nat to u16
+
             let status_code = response.status.0.to_u64_digits();
             let status_u16 = if status_code.len() == 1 {
                 status_code[0] as u16
             } else {
-                999 // Invalid status code
+                999 
             };
             
             match status_u16 {
@@ -186,7 +184,7 @@ pub async fn fetch_live_exchange_rate(currency: String) -> Result<ExchangeRate, 
 fn is_cache_very_recent(exchange_rate: &ExchangeRate) -> bool {
     let current_time = ic_cdk::api::time();
     let rate_age = current_time.saturating_sub(exchange_rate.timestamp);
-    let max_recent_age = RATE_CACHE_DURATION_SECONDS * 1_000_000_000; // 5 minutes in nanoseconds
+    let max_recent_age = RATE_CACHE_DURATION_SECONDS * 1_000_000_000; 
     
     rate_age < max_recent_age
 }
@@ -195,19 +193,18 @@ fn is_cache_very_recent(exchange_rate: &ExchangeRate) -> bool {
 pub fn get_cache_age_minutes(exchange_rate: &ExchangeRate) -> u64 {
     let current_time = ic_cdk::api::time();
     let rate_age = current_time.saturating_sub(exchange_rate.timestamp);
-    rate_age / (60 * 1_000_000_000) // Convert to minutes
+    rate_age / (60 * 1_000_000_000) 
 }
 
 // Enhanced cache validation
 pub fn is_rate_cache_valid(exchange_rate: &ExchangeRate) -> bool {
     let current_time = ic_cdk::api::time();
     let rate_age = current_time.saturating_sub(exchange_rate.timestamp);
-    let max_age = RATE_CACHE_DURATION_SECONDS * 1_000_000_000; // Convert to nanoseconds
+    let max_age = RATE_CACHE_DURATION_SECONDS * 1_000_000_000; 
     
     rate_age < max_age
 }
 
-// Rest of the existing functions remain the same...
 pub fn parse_coingecko_response(body: &str, currency: &str) -> Result<f64, String> {
     let parsed: serde_json::Value = serde_json::from_str(body)
         .map_err(|e| format!("JSON parse error: {}", e))?;
@@ -303,7 +300,7 @@ mod tests {
     fn test_icp_amount_calculation() {
         let result = calculate_icp_amount(100.0, 5.0);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), 2_000_000_000); // 20 ICP in e8s
+        assert_eq!(result.unwrap(), 2_000_000_000); 
     }
 
     #[test]
@@ -318,7 +315,7 @@ mod tests {
         let exchange_rate = ExchangeRate {
             currency: "USD".to_string(),
             rate: 5.0,
-            timestamp: ic_cdk::api::time() - (10 * 60 * 1_000_000_000), // 10 minutes ago
+            timestamp: ic_cdk::api::time() - (10 * 60 * 1_000_000_000), 
             source: "coingecko".to_string(),
         };
         

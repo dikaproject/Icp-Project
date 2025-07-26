@@ -1,6 +1,5 @@
 import { Actor, HttpAgent } from '@dfinity/agent'
 
-// Menggunakan IDL yang sudah ada dari declarations
 export const idlFactory = ({ IDL }) => {
   const User = IDL.Record({
     'id': IDL.Principal,
@@ -368,19 +367,19 @@ const EncryptedWalletIdentity = IDL.Record({
     'get_all_network_transactions': IDL.Func([], [IDL.Vec(NetworkTransaction)], ['query']),
     'get_all_transactions': IDL.Func([], [IDL.Vec(Transaction)], ['query']),
 
-    // Add new balance history methods
+    // new balance history methods
     'get_user_balance_history': IDL.Func([], [IDL.Vec(BalanceChangeLog)], ['query']),
     'get_all_balance_changes': IDL.Func([], [IDL.Vec(BalanceChangeLog)], ['query']),
     
-    // Add QR usage history methods
+    // QR usage history methods
     'get_qr_usage_history': IDL.Func([IDL.Text], [IDL.Vec(QRUsageLog)], ['query']),
     'get_all_qr_usage_logs': IDL.Func([], [IDL.Vec(QRUsageLog)], ['query']),
     
-    // Add user preferences methods
+    // user preferences methods
     'update_user_preferences': IDL.Func([IDL.Opt(IDL.Text), IDL.Opt(NotificationSettings), IDL.Opt(IDL.Text), IDL.Opt(IDL.Text), IDL.Opt(IDL.Text)], [Result_UserPreferences], []),
     'get_user_preferences': IDL.Func([], [IDL.Opt(UserPreferences)], ['query']),
     
-    // Add session methods
+    // session methods
     'create_user_session': IDL.Func([IDL.Text, IDL.Text], [Result_UserSession], []),
     'update_session_activity': IDL.Func([IDL.Text], [Result_UserSession], []),
     'end_user_session': IDL.Func([IDL.Text], [Result_String], []),
@@ -395,11 +394,9 @@ export const createActor = (canisterId, options = {}) => {
     identity: options.identity
   })
 
-  // Fetch root key for local development with better error handling
   if (import.meta.env.VITE_DFX_NETWORK === 'local') {
     agent.fetchRootKey().catch(err => {
       console.warn('Unable to fetch root key:', err)
-      // Continue anyway - sometimes this works even without root key
     })
   }
 
@@ -438,7 +435,6 @@ export class PaymentBackendService {
   async debugGetAllUsers() {
     try {
       const result = await this.actor.debug_get_all_users()
-      console.log('🔍 All users in canister:', result)
       return result
     } catch (error) {
       console.error('Debug get all users error:', error)
@@ -449,7 +445,6 @@ export class PaymentBackendService {
   async debugGetUserCount() {
     try {
       const result = await this.actor.debug_get_user_count()
-      console.log('📊 Total user count:', result)
       return result
     } catch (error) {
       console.error('Debug get user count error:', error)
@@ -477,9 +472,7 @@ export class PaymentBackendService {
 
   async saveWalletIdentityByEmail(email, secretKeyHex, password, walletName) {
     try {
-      console.log('🔐 Saving wallet identity for email:', email)
       const result = await this.actor.save_wallet_identity_by_email(email, secretKeyHex, password, walletName)
-      console.log('💾 Save wallet result:', result)
       return result
     } catch (error) {
       console.error('Save wallet identity error:', error)
@@ -491,7 +484,6 @@ export class PaymentBackendService {
     try {
       console.log('🔓 Getting wallet identity for email:', email)
       const result = await this.actor.get_wallet_identity_by_email(email, password)
-      console.log('🔍 Get wallet result:', result)
       return result
     } catch (error) {
       console.error('Get wallet identity error:', error)
@@ -501,9 +493,7 @@ export class PaymentBackendService {
 
   async checkWalletIdentityExists(email) {
     try {
-      console.log('🔍 Checking wallet identity exists for:', email)
       const result = await this.actor.check_wallet_identity_exists(email)
-      console.log('✅ Wallet exists check result:', result)
       return result
     } catch (error) {
       console.error('Check wallet identity exists error:', error)
@@ -513,9 +503,7 @@ export class PaymentBackendService {
 
   async updateWalletIdentityPassword(email, oldPassword, newPassword) {
     try {
-      console.log('🔄 Updating wallet password for email:', email)
       const result = await this.actor.update_wallet_identity_password(email, oldPassword, newPassword)
-      console.log('🔐 Update password result:', result)
       return result
     } catch (error) {
       console.error('Update wallet password error:', error)
@@ -525,11 +513,8 @@ export class PaymentBackendService {
 
   async getUserByEmail(email) {
     try {
-      console.log('👤 Getting user by email:', email)
       const result = await this.actor.get_user_by_email(email)
-      console.log('📋 Get user by email result:', result)
       
-      // FIXED: Return null instead of empty array if no user found
       if (!result || (Array.isArray(result) && result.length === 0)) {
         return null
       }
@@ -627,12 +612,10 @@ export class PaymentBackendService {
 
   async processPayment(qrId, transactionHash) {
     try {
-      console.log('Processing payment for QR:', qrId)
       const result = await this.actor.process_payment(
         qrId,
         transactionHash ? [transactionHash] : []
       )
-      console.log('Payment result:', result)
       return result
     } catch (error) {
       console.error('Payment processing error:', error)
@@ -665,9 +648,7 @@ export class PaymentBackendService {
 
   async createQRISTopup(amount, currency) {
     try {
-      console.log('Creating QRIS topup:', { amount, currency })
       const result = await this.actor.create_qris_topup(amount, currency)
-      console.log('Raw QRIS result:', result)
       return result
     } catch (error) {
       console.error('QRIS topup error details:', error)
@@ -721,7 +702,6 @@ export class PaymentBackendService {
   async getAllNetworkTransactions() {
     try {
       const result = await this.actor.get_all_network_transactions()
-      console.log('🌐 Network transactions fetched:', result?.length || 0)
       return result || []
     } catch (error) {
       console.error('Get all network transactions error:', error)

@@ -19,19 +19,12 @@ function App() {
     <ICPProvider>
       <Router>
         <Routes>
-          {/* Landing page route */}
             <Route path="/" element={<Landing />} />
-            
-            {/* About page route */}
             <Route path="/about" element={<About />} />
-            
-            {/* Network page route */}
-            <Route path="/network" element={<NetworkDashboard />} />
-            
-            {/* External routes (no layout) */}
+            <Route path="/network" element={<NetworkDashboard />} />   
             <Route path="/qris/:topupId" element={<ClaimQRIS />} />
           
-          {/* Routes dengan Layout */}
+
           <Route path="/*" element={
             <Layout>
               <Routes>

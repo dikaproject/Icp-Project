@@ -40,7 +40,6 @@ export const ICPProvider = ({ children }) => {
     try {
       setError(null)
       
-      // Create anonymous actor first for wallet operations
       await createActorConnection()
       
       // Then check if we have a current session
@@ -86,7 +85,6 @@ export const ICPProvider = ({ children }) => {
         identity 
       })
       
-      // Fetch root key for local development - with better error handling
       if (isDevelopment) {
         try {
           console.log('🔑 Fetching root key for local development...')
@@ -94,7 +92,6 @@ export const ICPProvider = ({ children }) => {
           console.log('✅ Root key fetched successfully')
         } catch (rootKeyError) {
           console.warn('⚠️ Failed to fetch root key:', rootKeyError)
-          // Continue anyway - sometimes this works even without root key
         }
       }
 
@@ -123,7 +120,6 @@ export const ICPProvider = ({ children }) => {
   
   const backendService = await createActorConnection(identity)
   
-  // Try to load existing user - but don't block if it fails
   try {
     const existingUser = await backendService.getUser()
     if (existingUser) {
@@ -134,7 +130,6 @@ export const ICPProvider = ({ children }) => {
     }
   } catch (err) {
     console.warn('Could not load user data:', err)
-    // Continue anyway
   }
   
   // Store auth state
@@ -161,7 +156,6 @@ export const ICPProvider = ({ children }) => {
     }
   }
 
-    // Update handleWalletConnect in ICPContext.jsx
   const handleWalletConnect = async (identity, walletName) => {
     try {
       console.log('🔗 Connecting wallet:', walletName)
@@ -189,7 +183,6 @@ export const ICPProvider = ({ children }) => {
     }
   }
 
-  // Update handleWalletCreate function (around line 180):
   const handleWalletCreate = async (identity, walletName, mnemonic, extraData) => {
     try {
       setShowWalletModal(false)
@@ -197,7 +190,6 @@ export const ICPProvider = ({ children }) => {
       
       await authenticateWithIdentity(identity)
       
-      // If we have email data, trigger registration
       if (extraData?.email) {
         console.log('🔄 Registering user with email:', extraData.email)
         
@@ -210,7 +202,6 @@ export const ICPProvider = ({ children }) => {
         if (result.success) {
           console.log('✅ User registered successfully:', result.data)
         } else {
-          // If registration fails but it's because user exists, that's ok
           if (!result.error.includes('already registered')) {
             console.error('❌ Registration failed:', result.error)
           }
@@ -234,13 +225,11 @@ export const ICPProvider = ({ children }) => {
     }
   }
 
-  // Update logout to clear session
   const logout = async () => {
     try {
       setIsLoading(true)
       setError(null)
       
-      // End active session
       if (activeSession && backend) {
         try {
           await backend.endUserSession(activeSession.session_id)
@@ -295,7 +284,6 @@ export const ICPProvider = ({ children }) => {
   } catch (err) {
     console.error('Load user error:', err)
     
-    // Don't show error for user not found - this is normal for new users
     if (!err.message.includes('not found')) {
       console.warn('Failed to load user data:', err.message)
     }
@@ -321,8 +309,7 @@ export const ICPProvider = ({ children }) => {
     try {
       if (!backendService) return null
       
-      // Get user's IP and user agent
-      const ipAddress = '127.0.0.1' // In production, get from server
+      const ipAddress = '127.0.0.1' 
       const userAgent = navigator.userAgent
       
       const sessionResult = await backendService.createUserSession(ipAddress, userAgent)
@@ -338,7 +325,6 @@ export const ICPProvider = ({ children }) => {
     }
   }
 
-  // Update registerUser to use email-based registration
   const registerUser = async (walletAddress, username, email) => {
     try {
       if (!backend) {
@@ -351,7 +337,6 @@ export const ICPProvider = ({ children }) => {
 
       console.log('🔄 Registering user with email:', email)
       
-      // Try email-based registration first
       const result = await backend.registerUserByEmail(email, username, walletAddress)
       
       if (result.Ok) {

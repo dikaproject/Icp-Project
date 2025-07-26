@@ -33,15 +33,15 @@ pub struct Transaction {
     pub id: String,
     pub from: Principal,
     pub to: Principal,
-    pub amount: u64,           // Amount dalam ICP (e8s)
-    pub fiat_currency: String, // IDR, USD, EUR, etc
-    pub fiat_amount: f64,      // Original fiat amount
-    pub icp_amount: u64,       // Converted ICP amount
+    pub amount: u64,           
+    pub fiat_currency: String, 
+    pub fiat_amount: f64,      
+    pub icp_amount: u64,       
     pub timestamp: u64,
     pub status: TransactionStatus,
     pub qr_id: String,
     pub transaction_hash: Option<String>,
-    pub fee: u64,              // Transaction fee in e8s
+    pub fee: u64,              
 }
 
 
@@ -78,7 +78,7 @@ pub struct BalanceChangeLog {
     pub previous_balance: u64,
     pub new_balance: u64,
     pub timestamp: u64,
-    pub reference_id: String, // transaction_id or topup_id
+    pub reference_id: String, 
     pub description: String,
 }
 
@@ -140,7 +140,7 @@ pub enum QRUsageType {
     PaymentExpired,
 }
 
-// Add User Preferences (Mutable)
+// User Preferences (Mutable)
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct UserPreferences {
     pub user_id: Principal,
@@ -175,7 +175,7 @@ pub struct NotificationSettings {
     pub marketing_emails: bool,
 }
 
-// Add Session Data (Mutable)
+// Session Data (Mutable)
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct UserSession {
     pub user_id: Principal,
@@ -233,9 +233,9 @@ impl Storable for QRCode {
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
 pub struct ExchangeRate {
     pub currency: String,
-    pub rate: f64,           // 1 ICP = X currency
+    pub rate: f64,           
     pub timestamp: u64,
-    pub source: String,      // "coingecko", "binance", etc
+    pub source: String,      
 }
 
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug)]
@@ -281,15 +281,15 @@ pub struct CoinGeckoResponse {
 pub struct TopUpTransaction {
     pub id: String,
     pub user_id: Principal,
-    pub amount: u64,           // Amount in e8s
-    pub fiat_amount: f64,      // Original fiat amount
+    pub amount: u64,          
+    pub fiat_amount: f64,      
     pub fiat_currency: String,
     pub payment_method: TopUpMethod,
     pub payment_data: TopUpPaymentData,
     pub status: TopUpStatus,
     pub created_at: u64,
     pub processed_at: Option<u64>,
-    pub reference_id: String,  // External reference ID
+    pub reference_id: String,  
 }
 
 impl Storable for TopUpTransaction {
@@ -341,8 +341,8 @@ pub struct QRISData {
 
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct CardData {
-    pub card_number: String,  // Masked for security
-    pub card_type: String,    // visa, mastercard, etc
+    pub card_number: String, 
+    pub card_type: String,   
     pub payment_gateway: String,
     pub transaction_id: String,
 }
@@ -350,9 +350,9 @@ pub struct CardData {
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Web3Data {
     pub wallet_address: String,
-    pub blockchain_network: String,     // Changed from 'network'
-    pub transaction_hash: Option<String>, // Changed from 'tx_hash'
-    pub confirmation_count: u32,        // Add missing field
+    pub blockchain_network: String,     
+    pub transaction_hash: Option<String>, 
+    pub confirmation_count: u32,     
 }
 
 #[derive(CandidType, Serialize, Deserialize, Clone, Debug)]

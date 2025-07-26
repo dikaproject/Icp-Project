@@ -38,7 +38,7 @@ const TopUp = () => {
   const [qrError, setQrError] = useState(false)
   const [showBalance, setShowBalance] = useState(true)
 
-  // UPDATED: Currency list dengan country codes untuk flags
+  // Currency list dengan country codes untuk flags
   const currencies = [
     { 
       code: 'IDR', 
