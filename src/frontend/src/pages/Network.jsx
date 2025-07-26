@@ -36,7 +36,6 @@ import {
   Twitter,
   Linkedin,
   Mail,
-  Flag,
   BarChart3,
   Palette,
   ArrowLeft,
@@ -56,12 +55,15 @@ import {
   Power,
   Flame,
   Loader,
-  AlertCircle
+  AlertCircle,
+  User
 } from 'lucide-react'
+import Flag from 'react-world-flags'
 
 const NetworkDashboard = () => {
-  const { backend } = useICP()
+  const { backend, showWalletModal, setShowWalletModal } = useICP()
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [networkStats, setNetworkStats] = useState({
     total_icp_volume: 0,
     total_transactions: 0,
@@ -75,6 +77,8 @@ const NetworkDashboard = () => {
   const [allTransactions, setAllTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [transactionsPerPage] = useState(10)
 
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -104,22 +108,31 @@ const NetworkDashboard = () => {
   const convertBigIntInObject = (obj) => {
     if (!obj) return obj
     
-    const converted = { ...obj }
+    if (Array.isArray(obj)) {
+      return obj.map(item => convertBigIntInObject(item))
+    }
     
-    Object.keys(converted).forEach(key => {
-      if (typeof converted[key] === 'bigint') {
-        converted[key] = Number(converted[key])
-      } else if (Array.isArray(converted[key])) {
-        converted[key] = converted[key].map(item => {
-          if (typeof item === 'object' && item !== null) {
-            return convertBigIntInObject(item)
-          }
-          return typeof item === 'bigint' ? Number(item) : item
-        })
-      }
-    })
+    if (typeof obj === 'object' && obj !== null) {
+      const converted = {}
+      
+      Object.keys(obj).forEach(key => {
+        const value = obj[key]
+        
+        if (typeof value === 'bigint') {
+          converted[key] = Number(value)
+        } else if (Array.isArray(value)) {
+          converted[key] = value.map(item => convertBigIntInObject(item))
+        } else if (typeof value === 'object' && value !== null) {
+          converted[key] = convertBigIntInObject(value)
+        } else {
+          converted[key] = value
+        }
+      })
+      
+      return converted
+    }
     
-    return converted
+    return typeof obj === 'bigint' ? Number(obj) : obj
   }
 
   const fetchNetworkData = async () => {
@@ -178,21 +191,21 @@ const NetworkDashboard = () => {
   }
 
   const currencyCountryMap = {
-    USD: { name: 'United States', flag: '🇺🇸', region: 'Americas' },
-    EUR: { name: 'European Union', flag: '🇪🇺', region: 'Europe' },
-    GBP: { name: 'United Kingdom', flag: '🇬🇧', region: 'Europe' },
-    JPY: { name: 'Japan', flag: '🇯🇵', region: 'Asia' },
-    IDR: { name: 'Indonesia', flag: '🇮🇩', region: 'Asia' },
-    SGD: { name: 'Singapore', flag: '🇸🇬', region: 'Asia' },
-    MYR: { name: 'Malaysia', flag: '🇲🇾', region: 'Asia' },
-    PHP: { name: 'Philippines', flag: '🇵🇭', region: 'Asia' },
-    THB: { name: 'Thailand', flag: '🇹🇭', region: 'Asia' },
-    VND: { name: 'Vietnam', flag: '🇻🇳', region: 'Asia' },
-    KRW: { name: 'South Korea', flag: '🇰🇷', region: 'Asia' },
-    CNY: { name: 'China', flag: '🇨🇳', region: 'Asia' },
-    AUD: { name: 'Australia', flag: '🇦🇺', region: 'Oceania' },
-    CAD: { name: 'Canada', flag: '🇨🇦', region: 'Americas' },
-    INR: { name: 'India', flag: '🇮🇳', region: 'Asia' }
+    USD: { name: 'United States', code: 'US', region: 'Americas' },
+    EUR: { name: 'European Union', code: 'EU', region: 'Europe' },
+    GBP: { name: 'United Kingdom', code: 'GB', region: 'Europe' },
+    JPY: { name: 'Japan', code: 'JP', region: 'Asia' },
+    IDR: { name: 'Indonesia', code: 'ID', region: 'Asia' },
+    SGD: { name: 'Singapore', code: 'SG', region: 'Asia' },
+    MYR: { name: 'Malaysia', code: 'MY', region: 'Asia' },
+    PHP: { name: 'Philippines', code: 'PH', region: 'Asia' },
+    THB: { name: 'Thailand', code: 'TH', region: 'Asia' },
+    VND: { name: 'Vietnam', code: 'VN', region: 'Asia' },
+    KRW: { name: 'South Korea', code: 'KR', region: 'Asia' },
+    CNY: { name: 'China', code: 'CN', region: 'Asia' },
+    AUD: { name: 'Australia', code: 'AU', region: 'Oceania' },
+    CAD: { name: 'Canada', code: 'CA', region: 'Americas' },
+    INR: { name: 'India', code: 'IN', region: 'Asia' }
   }
 
   const formatICP = (amount) => {
@@ -267,28 +280,76 @@ const NetworkDashboard = () => {
   }
 
   const getRecentTransactions = () => {
-    // Ensure allTransactions is an array before using .slice()
     if (!Array.isArray(allTransactions) || allTransactions.length === 0) {
       return []
     }
 
-    return allTransactions.slice(0, 5).map((tx, index) => {
+    // Calculate pagination
+    const startIndex = (currentPage - 1) * transactionsPerPage
+    const endIndex = startIndex + transactionsPerPage
+
+    return allTransactions.slice(startIndex, endIndex).map((tx, index) => {
       const getStatusText = (status) => {
         if (typeof status === 'object' && status !== null) {
-          return Object.keys(status)[0]
+          const statusKeys = Object.keys(status)
+          if (statusKeys.length > 0) {
+            return statusKeys[0]
+          }
         }
         return status || 'Unknown'
       }
 
+      const currency = tx.fiat_currency || 'USD'
+      const currencyInfo = currencyCountryMap[currency]
+      
       return {
-        id: tx.id || `tx-${index}`,
-        type: getStatusText(tx.status) === 'Completed' ? 'Application' : 'System',
-        countries: [currencyCountryMap[tx.fiat_currency]?.flag || '🌍'],
-        amount: formatCurrency(tx.fiat_amount || 0, tx.fiat_currency || 'USD'),
+        id: tx.id || `tx-${startIndex + index}`,
+        type: getStatusText(tx.status) === 'Completed' ? 'Payment' : 'Processing',
+        countryCode: currencyInfo?.code || 'UN',
+        countryName: currencyInfo?.name || 'Unknown',
+        amount: formatCurrency(tx.fiat_amount || 0, currency),
         status: getStatusText(tx.status),
-        icpAmount: formatICP(tx.amount || 0)
+        icpAmount: formatICP(tx.amount || 0),
+        currency: currency
       }
     })
+  }
+
+  const getTotalPages = () => {
+    return Math.ceil(allTransactions.length / transactionsPerPage)
+  }
+
+  const getTransactionRange = () => {
+    const start = (currentPage - 1) * transactionsPerPage + 1
+    const end = Math.min(currentPage * transactionsPerPage, allTransactions.length)
+    return { start, end }
+  }
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= getTotalPages()) {
+      setCurrentPage(newPage)
+    }
+  }
+
+  const generatePageNumbers = () => {
+    const totalPages = getTotalPages()
+    const pages = []
+    const maxVisiblePages = 5
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i)
+      }
+    } else {
+      const start = Math.max(1, currentPage - 2)
+      const end = Math.min(totalPages, start + maxVisiblePages - 1)
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i)
+      }
+    }
+    
+    return pages
   }
 
   const getCurrencyDistribution = () => {
@@ -296,11 +357,15 @@ const NetworkDashboard = () => {
       return []
     }
     
-    return networkStats.currency_stats.slice(0, 5).map(stat => ({
-      name: currencyCountryMap[stat.currency]?.name || stat.currency,
-      volume: convertBigIntToNumber(stat.total_icp_volume || 0),
-      flag: currencyCountryMap[stat.currency]?.flag || '🌍'
-    }))
+    return networkStats.currency_stats.slice(0, 5).map(stat => {
+      const currencyInfo = currencyCountryMap[stat.currency]
+      return {
+        name: currencyInfo?.name || stat.currency,
+        volume: convertBigIntToNumber(stat.total_icp_volume || 0),
+        countryCode: currencyInfo?.code || 'UN',
+        currency: stat.currency
+      }
+    })
   }
 
   const fadeInUp = {
@@ -408,29 +473,65 @@ const NetworkDashboard = () => {
             </button>
             
             <div className="relative group">
-              <button className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-purple-600 hover:to-blue-600 transition-all duration-300 flex items-center space-x-2">
+              <button 
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-purple-600 hover:to-blue-600 transition-all duration-300 flex items-center space-x-2"
+              >
                 <Wallet className="w-4 h-4" />
                 <span>Connect Wallet</span>
-                <svg className="w-4 h-4 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
               
-              <div className="absolute right-0 mt-2 w-48 bg-slate-900/95 backdrop-blur-sm border border-slate-700/50 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                <div className="py-2">
-                  <Link 
-                    to="/app/dashboard" 
-                    className="flex items-center px-4 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-800/50 transition-colors"
-                  >
-                    <Wallet className="w-4 h-4 mr-2" />
-                    Connect Wallet
-                  </Link>
-                  <button className="flex items-center w-full px-4 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-800/50 transition-colors">
-                    <Download className="w-4 h-4 mr-2" />
-                    Import Wallet
-                  </button>
+              {/* Backdrop */}
+              {isDropdownOpen && (
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setIsDropdownOpen(false)} 
+                />
+              )}
+              
+              {/* Dropdown Menu */}
+              {isDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-slate-900/95 backdrop-blur-sm border border-slate-700/50 rounded-lg shadow-xl z-50">
+                  <div className="py-2">
+                    <div className="px-4 py-2 text-xs text-slate-400 font-medium uppercase tracking-wide border-b border-slate-700/50 mb-2">
+                      Authentication
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setIsDropdownOpen(false)
+                        setShowWalletModal(true)
+                      }}
+                      className="flex items-center w-full px-4 py-3 text-sm text-slate-300 hover:text-white hover:bg-slate-800/50 transition-colors group"
+                    >
+                      <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center mr-3 group-hover:scale-105 transition-transform">
+                        <Wallet className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="text-left">
+                        <div className="font-medium">Login</div>
+                        <div className="text-xs text-slate-400">Connect existing wallet</div>
+                      </div>
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setIsDropdownOpen(false)
+                        setShowWalletModal(true)
+                      }}
+                      className="flex items-center w-full px-4 py-3 text-sm text-slate-300 hover:text-white hover:bg-slate-800/50 transition-colors group"
+                    >
+                      <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center mr-3 group-hover:scale-105 transition-transform">
+                        <User className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="text-left">
+                        <div className="font-medium">Register</div>
+                        <div className="text-xs text-slate-400">Create new account</div>
+                      </div>
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </motion.div>
         </div>
@@ -600,14 +701,21 @@ const NetworkDashboard = () => {
                   <h3 className="text-lg font-aeonik font-semibold text-white">
                     {formatNumber(allTransactions.length)} Total Transactions
                   </h3>
-                  <div className="flex items-center space-x-2">
-                    <Link 
-                      to="/app/network"
-                      className="text-slate-400 hover:text-white transition-colors text-sm"
-                    >
-                      View All
-                    </Link>
-                    <MoreHorizontal className="w-4 h-4 text-slate-400" />
+                  <div className="flex items-center space-x-4">
+                    {allTransactions.length > 0 && (
+                      <span className="text-sm text-slate-400">
+                        Showing {getTransactionRange().start}-{getTransactionRange().end} of {allTransactions.length}
+                      </span>
+                    )}
+                    <div className="flex items-center space-x-2">
+                      <Link 
+                        to="/network"
+                        className="text-slate-400 hover:text-white transition-colors text-sm"
+                      >
+                        View All
+                      </Link>
+                      <MoreHorizontal className="w-4 h-4 text-slate-400" />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -627,37 +735,55 @@ const NetworkDashboard = () => {
                     {getRecentTransactions().length > 0 ? (
                       getRecentTransactions().map((tx, index) => (
                         <motion.tr
-                          key={index}
+                          key={tx.id || index}
                           initial={{ opacity: 0, x: -20 }}
                           whileInView={{ opacity: 1, x: 0 }}
-                          transition={{ duration: 0.5, delay: index * 0.1 }}
+                          transition={{ duration: 0.5, delay: index * 0.05 }}
                           viewport={{ once: true }}
                           className="border-t border-slate-800/30 hover:bg-slate-800/20 transition-colors"
                         >
                           <td className="px-6 py-4">
                             <div className="flex items-center">
-                              <div className="w-2 h-2 bg-blue-400 rounded-full mr-3"></div>
-                              <span className="text-blue-400 text-sm font-mono">{tx.id.slice(0, 16)}...</span>
+                              <div className={`w-2 h-2 rounded-full mr-3 ${
+                                tx.status === 'Completed' ? 'bg-green-400' : 
+                                tx.status === 'Processing' ? 'bg-yellow-400' : 'bg-blue-400'
+                              }`}></div>
+                              <span className="text-blue-400 text-sm font-mono">
+                                {tx.id.length > 20 ? `${tx.id.slice(0, 20)}...` : tx.id}
+                              </span>
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <span className="text-slate-300 text-sm">{tx.amount}</span>
+                            <span className="text-slate-300 text-sm font-medium">{tx.amount}</span>
                           </td>
                           <td className="px-6 py-4">
-                            <div className="flex space-x-1">
-                              {tx.countries.map((flag, i) => (
-                                <span key={i} className="text-sm">{flag}</span>
-                              ))}
+                            <div className="flex items-center space-x-3">
+                              <div className="w-6 h-4 rounded overflow-hidden border border-slate-600/50">
+                                <Flag 
+                                  code={tx.countryCode} 
+                                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                  fallback={<span className="text-xs">🌍</span>}
+                                />
+                              </div>
+                              <div>
+                                <div className="text-slate-300 text-sm font-medium">{tx.currency}</div>
+                                <div className="text-slate-400 text-xs">{tx.countryName}</div>
+                              </div>
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              tx.status === 'Completed' ? 'bg-green-500/20 text-green-400' : 'bg-orange-500/20 text-orange-400'
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                              tx.status === 'Completed' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 
+                              tx.status === 'Processing' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                              tx.status === 'Pending' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                              'bg-red-500/20 text-red-400 border border-red-500/30'
                             }`}>
                               {tx.status}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-slate-300 text-sm">{tx.icpAmount}</td>
+                          <td className="px-6 py-4">
+                            <span className="text-slate-300 text-sm font-mono">{tx.icpAmount} ICP</span>
+                          </td>
                         </motion.tr>
                       ))
                     ) : (
@@ -676,6 +802,54 @@ const NetworkDashboard = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination */}
+              {allTransactions.length > transactionsPerPage && (
+                <div className="px-6 py-4 border-t border-slate-800/30 bg-slate-900/20">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-slate-400">
+                      Showing {getTransactionRange().start} to {getTransactionRange().end} of {allTransactions.length} transactions
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      {/* Previous Button */}
+                      <button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className="px-3 py-2 text-sm bg-slate-800/50 text-slate-300 rounded-lg hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Previous
+                      </button>
+
+                      {/* Page Numbers */}
+                      <div className="flex space-x-1">
+                        {generatePageNumbers().map((pageNum) => (
+                          <button
+                            key={pageNum}
+                            onClick={() => handlePageChange(pageNum)}
+                            className={`px-3 py-2 text-sm rounded-lg transition-colors ${
+                              pageNum === currentPage
+                                ? 'bg-purple-500 text-white'
+                                : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50'
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Next Button */}
+                      <button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === getTotalPages()}
+                        className="px-3 py-2 text-sm bg-slate-800/50 text-slate-300 rounded-lg hover:bg-slate-700/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </motion.div>
           </section>
 
@@ -703,12 +877,21 @@ const NetworkDashboard = () => {
 
                 <div className="space-y-3">
                   {getCurrencyDistribution().map((currency, index) => (
-                    <div key={index} className="flex items-center justify-between">
+                    <div key={index} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg hover:bg-slate-800/50 transition-colors">
                       <div className="flex items-center space-x-3">
-                        <span className="text-lg">{currency.flag}</span>
-                        <span className="text-slate-300 text-sm">{currency.name}</span>
+                        <div className="w-8 h-6 rounded overflow-hidden border border-slate-600/50 flex-shrink-0">
+                          <Flag 
+                            code={currency.countryCode} 
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            fallback={<span className="text-xs">🌍</span>}
+                          />
+                        </div>
+                        <div>
+                          <div className="text-slate-300 text-sm font-medium">{currency.currency}</div>
+                          <div className="text-slate-400 text-xs">{currency.name}</div>
+                        </div>
                       </div>
-                      <span className="text-slate-400 text-sm">{formatICP(currency.volume)} ICP</span>
+                      <span className="text-slate-400 text-sm font-mono">{formatICP(currency.volume)} ICP</span>
                     </div>
                   ))}
                 </div>
@@ -791,14 +974,14 @@ const NetworkDashboard = () => {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link
-                  to="/app/dashboard"
+                  to="/dashboard"
                   className="inline-flex items-center bg-gradient-to-r from-purple-500 to-blue-500 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-300 transform hover:scale-105"
                 >
                   Try Arta Wallet
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Link>
                 <Link
-                  to="/app/network"
+                  to="/network"
                   className="inline-flex items-center border border-white/30 bg-white/10 backdrop-blur-sm text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-white/20 transition-all duration-300"
                 >
                   View Detailed Stats
@@ -832,7 +1015,7 @@ const NetworkDashboard = () => {
                 <li><a href="#features" className="text-slate-400 hover:text-white transition-colors">Features</a></li>
                 <li><a href="#how-it-works" className="text-slate-400 hover:text-white transition-colors">How It Works</a></li>
                 <li><a href="#security" className="text-slate-400 hover:text-white transition-colors">Security</a></li>
-                <li><a href="/app/dashboard" className="text-slate-400 hover:text-white transition-colors">Dashboard</a></li>
+                <li><a href="/dashboard" className="text-slate-400 hover:text-white transition-colors">Dashboard</a></li>
               </ul>
             </div>
 
@@ -882,4 +1065,4 @@ const NetworkDashboard = () => {
   )
 }
 
-export default NetworkDashboard 
+export default NetworkDashboard

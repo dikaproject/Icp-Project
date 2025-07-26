@@ -22,6 +22,7 @@ const Sidebar = ({ isCollapsed, setIsCollapsed, isMobile, closeMobileMenu }) => 
     { name: 'Generate QR', path: '/generate', icon: QrCode },
     { name: 'Scan Payment', path: '/scan', icon: Scan },
     { name: 'History', path: '/history', icon: History },
+    { name: 'Back to Home', path: '/', icon: Home },
   ]
 
   const isActiveRoute = (path) => {

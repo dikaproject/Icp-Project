@@ -37,8 +37,11 @@ import {
   Github,
   Twitter,
   Linkedin,
-  Mail
+  Mail,
+  User
 } from 'lucide-react'
+import { useICP } from '../contexts/ICPContext'
+
 
 // Import assets with fallback
 let ContainerImage, ContainerdashboardImage
@@ -52,7 +55,9 @@ try {
 }
 
 const Landing = () => {
+  const { isAuthenticated, principal, user, showWalletModal, setShowWalletModal } = useICP() 
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -268,32 +273,80 @@ const Landing = () => {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="flex items-center space-x-4 relative"
           >
-            <div className="relative group">
-              <button className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-purple-600 hover:to-blue-600 transition-all duration-300 flex items-center space-x-2">
+            {isAuthenticated ? (
+              // If authenticated, show Go to Dashboard button
+              <Link
+                to="/dashboard"
+                className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-purple-600 hover:to-blue-600 transition-all duration-300 flex items-center space-x-2"
+              >
                 <Wallet className="w-4 h-4" />
-                <span>Connect Wallet</span>
-                <svg className="w-4 h-4 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              
-              {/* Dropdown Menu */}
-              <div className="absolute right-0 mt-2 w-48 bg-slate-900/95 backdrop-blur-sm border border-slate-700/50 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                <div className="py-2">
-                  <Link 
-                    to="/app/dashboard" 
-                    className="flex items-center px-4 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-800/50 transition-colors"
-                  >
-                    <Wallet className="w-4 h-4 mr-2" />
-                    Connect Wallet
-                  </Link>
-                  <button className="flex items-center w-full px-4 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-800/50 transition-colors">
-                    <Download className="w-4 h-4 mr-2" />
-                    Import Wallet
-                  </button>
-                </div>
+                <span>Go to Dashboard</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            ) : (
+              // If not authenticated, show dropdown
+              <div className="relative group">
+                <button 
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-purple-600 hover:to-blue-600 transition-all duration-300 flex items-center space-x-2"
+                >
+                  <Wallet className="w-4 h-4" />
+                  <span>Connect Wallet</span>
+                  <svg className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {/* Backdrop */}
+                {isDropdownOpen && (
+                  <div 
+                    className="fixed inset-0 z-40" 
+                    onClick={() => setIsDropdownOpen(false)} 
+                  />
+                )}
+                
+                {/* Dropdown Menu */}
+                {isDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-56 bg-slate-900/95 backdrop-blur-sm border border-slate-700/50 rounded-lg shadow-xl z-50">
+                    <div className="py-2">
+                      <div className="px-4 py-2 text-xs text-slate-400 font-medium uppercase tracking-wide border-b border-slate-700/50 mb-2">
+                        Authentication
+                      </div>
+                      <button 
+                        onClick={() => {
+                          setIsDropdownOpen(false)
+                          setShowWalletModal(true)
+                        }}
+                        className="flex items-center w-full px-4 py-3 text-sm text-slate-300 hover:text-white hover:bg-slate-800/50 transition-colors group text-left"
+                      >
+                        <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center mr-3 group-hover:scale-105 transition-transform">
+                          <Wallet className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="text-left">
+                          <div className="font-medium">Login</div>
+                          <div className="text-xs text-slate-400">Connect existing wallet</div>
+                        </div>
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setIsDropdownOpen(false)
+                          setShowWalletModal(true)
+                        }}
+                        className="flex items-center w-full px-4 py-3 text-sm text-slate-300 hover:text-white hover:bg-slate-800/50 transition-colors group text-left"
+                      >
+                        <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center mr-3 group-hover:scale-105 transition-transform">
+                          <User className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="text-left">
+                          <div className="font-medium">Register</div>
+                          <div className="text-xs text-slate-400">Create new account</div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
           </motion.div>
         </div>
       </header>
@@ -667,14 +720,24 @@ const Landing = () => {
               <p className="text-xl text-slate-200 mb-8 max-w-2xl mx-auto">
                 Join the future of decentralized finance with Arta Wallet. Start sending and receiving payments globally with zero fees.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link 
-                  to="/app/dashboard" 
-                  className="bg-white text-black px-8 py-4 rounded-xl font-semibold text-lg hover:bg-slate-100 transition-all duration-300 transform hover:scale-105 flex items-center justify-center shadow-lg"
-                >
-                  Get Started Free
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Link>
+               <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                {isAuthenticated ? (
+                  <Link 
+                    to="/dashboard" 
+                    className="bg-white text-black px-8 py-4 rounded-xl font-semibold text-lg hover:bg-slate-100 transition-all duration-300 transform hover:scale-105 flex items-center justify-center shadow-lg"
+                  >
+                    Go to Dashboard
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Link>
+                ) : (
+                  <button 
+                    onClick={() => setShowWalletModal(true)}
+                    className="bg-white text-black px-8 py-4 rounded-xl font-semibold text-lg hover:bg-slate-100 transition-all duration-300 transform hover:scale-105 flex items-center justify-center shadow-lg"
+                  >
+                    Get Started Free
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </button>
+                )}
                 <a 
                   href="#how-it-works" 
                   className="border border-white/30 bg-white/10 backdrop-blur-sm text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-white/20 transition-all duration-300"
@@ -711,7 +774,7 @@ const Landing = () => {
                 <li><a href="#features" className="text-slate-400 hover:text-white transition-colors">Features</a></li>
                 <li><a href="#how-it-works" className="text-slate-400 hover:text-white transition-colors">How It Works</a></li>
                 <li><a href="#security" className="text-slate-400 hover:text-white transition-colors">Security</a></li>
-                <li><a href="/app/dashboard" className="text-slate-400 hover:text-white transition-colors">Dashboard</a></li>
+                <li><a href="/dashboard" className="text-slate-400 hover:text-white transition-colors">Dashboard</a></li>
               </ul>
             </div>
 

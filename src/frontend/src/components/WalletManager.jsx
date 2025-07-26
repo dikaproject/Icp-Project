@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { Ed25519KeyIdentity } from '@dfinity/identity'
-import { Wallet, Eye, EyeOff, Mail, AlertCircle, CheckCircle, RefreshCw, User, Lock, Loader } from 'lucide-react'
+import { Wallet, Eye, EyeOff, Mail, AlertCircle, CheckCircle, RefreshCw, User, Lock, Loader, X } from 'lucide-react'
 
-const WalletManager = ({ onWalletConnect, onWalletCreate, backend }) => {
+const WalletManager = ({ onWalletConnect, onWalletCreate, backend, onClose }) => {
   const [mode, setMode] = useState('login')
   const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
@@ -346,7 +346,18 @@ const WalletManager = ({ onWalletConnect, onWalletCreate, backend }) => {
 
    return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <div className="w-full max-w-2xl bg-[#222334] rounded-2xl lg:rounded-3xl shadow-2xl shadow-black/20 border border-[#23253B] my-8 max-h-[90vh] flex flex-col">
+      <div className="w-full max-w-2xl bg-[#222334] rounded-2xl lg:rounded-3xl shadow-2xl shadow-black/20 border border-[#23253B] my-8 max-h-[90vh] flex flex-col relative">
+        
+        {/* Close Button */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="absolute -top-4 -right-4 w-10 h-10 bg-[#222334] hover:bg-[#262840] border border-[#23253B] rounded-full flex items-center justify-center text-[#B3B3C2] hover:text-[#F5F6FA] transition-all duration-200 z-10 shadow-lg"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
+
         {/* Header - Fixed */}
         <div className="px-6 lg:px-8 py-6 lg:py-8 border-b border-[#23253B] bg-gradient-to-r from-[#262840] to-[#222334] rounded-t-2xl lg:rounded-t-3xl flex-shrink-0">
           <div className="text-center">

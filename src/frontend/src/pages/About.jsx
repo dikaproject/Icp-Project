@@ -43,11 +43,15 @@ import {
   Leaf,
   Target,
   Lightbulb,
-  Heart
+  Heart,
+  User
 } from 'lucide-react'
+import { useICP } from '../contexts/ICPContext'
 
 const About = () => {
+  const { isAuthenticated, principal, user, showWalletModal, setShowWalletModal } = useICP() // Add this line
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -99,55 +103,55 @@ const About = () => {
       icon: <Users className="w-5 h-5" />,
       feature: "User Management",
       description: "Mock wallet authentication & user registration system",
-      date: "Q1 2024"
+      date: "July 2025"
     },
     {
       icon: <QrCode className="w-5 h-5" />,
       feature: "QR Generation", 
       description: "Generate payment QR codes with 30-minute expiration",
-      date: "Q1 2024"
+      date: "July 2025"
     },
     {
       icon: <DollarSign className="w-5 h-5" />,
       feature: "Multi-Currency",
       description: "Support for USD, EUR, IDR, JPY, GBP, SGD with flag icons",
-      date: "Q2 2024"
+      date: "July 2025"
     },
     {
       icon: <RefreshCw className="w-5 h-5" />,
       feature: "Exchange Rates",
       description: "Real-time rates via CoinGecko HTTPS outcalls",
-      date: "Q2 2024"
+      date: "July 2025"
     },
     {
       icon: <CreditCard className="w-5 h-5" />,
       feature: "Payment Processing",
       description: "Mock payment simulation with transaction recording", 
-      date: "Q2 2024"
+      date: "July 2025"
     },
     {
       icon: <Clock className="w-5 h-5" />,
       feature: "Transaction History",
       description: "Complete payment history with transparency",
-      date: "Q3 2024"
+      date: "July 2025"
     },
     {
       icon: <Building2 className="w-5 h-5" />,
       feature: "Top-up System",
       description: "QRIS top-up (Indonesia), Credit Card & Web3 integration",
-      date: "Q3 2024"
+      date: "July 2025"
     },
     {
       icon: <BarChart3 className="w-5 h-5" />,
       feature: "Network Statistics",
       description: "Real-time payment network analytics dashboard",
-      date: "Q4 2024"
+      date: "July 2025"
     },
     {
       icon: <Palette className="w-5 h-5" />,
       feature: "Modern UI",
       description: "Responsive React frontend with Tailwind CSS",
-      date: "Q4 2024"
+      date: "July 2025"
     }
   ]
 
@@ -156,35 +160,35 @@ const About = () => {
       icon: <Shield className="w-5 h-5" />,
       feature: "Internet Identity Integration",
       description: "Seamless authentication with ICP's native identity system",
-      date: "Q1 2025",
+      date: "Q3 2025",
       status: "🚧"
     },
     {
       icon: <Wallet className="w-5 h-5" />,
       feature: "Real ICP Wallet Integration",
       description: "Support for Plug, Stoic, and other ICP wallets",
-      date: "Q1 2025",
+      date: "Q3 2025",
       status: "🚧"
     },
     {
       icon: <Send className="w-5 h-5" />,
       feature: "Actual ICP Transactions",
       description: "Real blockchain transactions on Internet Computer",
-      date: "Q2 2025",
+      date: "Q4 2025",
       status: "📅"
     },
     {
       icon: <Building2 className="w-5 h-5" />,
       feature: "Merchant Dashboard",
       description: "Complete business management interface with analytics",
-      date: "Q2 2025",
+      date: "Q4 2025",
       status: "📅"
     },
     {
       icon: <Smartphone className="w-5 h-5" />,
       feature: "Mobile Application",
       description: "Native mobile app with camera QR scanning",
-      date: "Q3 2025",
+      date: "Q4 2025",
       status: "📅"
     },
     {
@@ -276,32 +280,80 @@ const About = () => {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="flex items-center space-x-4 relative"
           >
-            <div className="relative group">
-              <button className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-purple-600 hover:to-blue-600 transition-all duration-300 flex items-center space-x-2">
+            {isAuthenticated ? (
+              // If authenticated, show Go to Dashboard button
+              <Link
+                to="/dashboard"
+                className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-purple-600 hover:to-blue-600 transition-all duration-300 flex items-center space-x-2"
+              >
                 <Wallet className="w-4 h-4" />
-                <span>Connect Wallet</span>
-                <svg className="w-4 h-4 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              
-              {/* Dropdown Menu */}
-              <div className="absolute right-0 mt-2 w-48 bg-slate-900/95 backdrop-blur-sm border border-slate-700/50 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                <div className="py-2">
-                  <Link 
-                    to="/app/dashboard" 
-                    className="flex items-center px-4 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-800/50 transition-colors"
-                  >
-                    <Wallet className="w-4 h-4 mr-2" />
-                    Connect Wallet
-                  </Link>
-                  <button className="flex items-center w-full px-4 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-800/50 transition-colors">
-                    <Download className="w-4 h-4 mr-2" />
-                    Import Wallet
-                  </button>
-                </div>
+                <span>Go to Dashboard</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            ) : (
+              // If not authenticated, show dropdown
+              <div className="relative group">
+                <button 
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-purple-600 hover:to-blue-600 transition-all duration-300 flex items-center space-x-2"
+                >
+                  <Wallet className="w-4 h-4" />
+                  <span>Connect Wallet</span>
+                  <svg className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {/* Backdrop */}
+                {isDropdownOpen && (
+                  <div 
+                    className="fixed inset-0 z-40" 
+                    onClick={() => setIsDropdownOpen(false)} 
+                  />
+                )}
+                
+                {/* Dropdown Menu */}
+                {isDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-56 bg-slate-900/95 backdrop-blur-sm border border-slate-700/50 rounded-lg shadow-xl z-50">
+                    <div className="py-2">
+                      <div className="px-4 py-2 text-xs text-slate-400 font-medium uppercase tracking-wide border-b border-slate-700/50 mb-2">
+                        Authentication
+                      </div>
+                      <button 
+                        onClick={() => {
+                          setIsDropdownOpen(false)
+                          setShowWalletModal(true)
+                        }}
+                        className="flex items-center w-full px-4 py-3 text-sm text-slate-300 hover:text-white hover:bg-slate-800/50 transition-colors group text-left"
+                      >
+                        <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center mr-3 group-hover:scale-105 transition-transform">
+                          <Wallet className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="text-left">
+                          <div className="font-medium">Login</div>
+                          <div className="text-xs text-slate-400">Connect existing wallet</div>
+                        </div>
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setIsDropdownOpen(false)
+                          setShowWalletModal(true)
+                        }}
+                        className="flex items-center w-full px-4 py-3 text-sm text-slate-300 hover:text-white hover:bg-slate-800/50 transition-colors group text-left"
+                      >
+                        <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center mr-3 group-hover:scale-105 transition-transform">
+                          <User className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="text-left">
+                          <div className="font-medium">Register</div>
+                          <div className="text-xs text-slate-400">Create new account</div>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
           </motion.div>
         </div>
       </header>
@@ -405,7 +457,7 @@ const About = () => {
                   <div className="text-slate-400">Traditional Payment Fees</div>
                 </div>
                 <div>
-                  <div className="text-3xl font-aeonik font-bold text-green-400 mb-2">0%</div>
+                  <div className="text-3xl font-aeonik font-bold text-green-400 mb-2">0.1% - 0.3%</div>
                   <div className="text-slate-400">Arta Wallet Transaction Fees</div>
                 </div>
                 <div>
@@ -589,7 +641,7 @@ const About = () => {
                 Join our testing phase and help shape the future of decentralized payments
               </p>
               <Link
-                to="/app/dashboard"
+                to="/dashboard"
                 className="inline-flex items-center bg-gradient-to-r from-purple-500 to-blue-500 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:from-purple-600 hover:to-blue-600 transition-all duration-300 transform hover:scale-105"
               >
                 Try Arta Wallet
@@ -625,7 +677,7 @@ const About = () => {
                 <li><a href="#features" className="text-slate-400 hover:text-white transition-colors">Features</a></li>
                 <li><a href="#how-it-works" className="text-slate-400 hover:text-white transition-colors">How It Works</a></li>
                 <li><a href="#security" className="text-slate-400 hover:text-white transition-colors">Security</a></li>
-                <li><a href="/app/dashboard" className="text-slate-400 hover:text-white transition-colors">Dashboard</a></li>
+                <li><a href="/dashboard" className="text-slate-400 hover:text-white transition-colors">Dashboard</a></li>
               </ul>
             </div>
 
