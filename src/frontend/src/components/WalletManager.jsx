@@ -344,210 +344,228 @@ const WalletManager = ({ onWalletConnect, onWalletCreate, backend }) => {
     setSuccess('')
   }
 
-  return (
-    <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
-      {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-200 bg-white">
-        <div className="text-center">
-          <div className="w-12 h-12 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-3">
-            <Wallet className="w-6 h-6 text-white" />
+   return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+      <div className="w-full max-w-2xl bg-[#222334] rounded-2xl lg:rounded-3xl shadow-2xl shadow-black/20 border border-[#23253B] my-8 max-h-[90vh] flex flex-col">
+        {/* Header - Fixed */}
+        <div className="px-6 lg:px-8 py-6 lg:py-8 border-b border-[#23253B] bg-gradient-to-r from-[#262840] to-[#222334] rounded-t-2xl lg:rounded-t-3xl flex-shrink-0">
+          <div className="text-center">
+            <div className="relative mb-6">
+              <div className="w-16 h-16 lg:w-20 lg:h-20 bg-gradient-to-r from-[#885FFF] to-[#59C1FF] rounded-2xl lg:rounded-3xl flex items-center justify-center mx-auto shadow-2xl shadow-purple-500/25">
+                <Wallet className="w-8 h-8 lg:w-10 lg:h-10 text-white" />
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-r from-[#885FFF] to-[#59C1FF] rounded-2xl lg:rounded-3xl blur-2xl opacity-30 mx-auto w-16 h-16 lg:w-20 lg:h-20"></div>
+            </div>
+            <h2 className="text-2xl lg:text-3xl font-bold text-[#F5F6FA] mb-2">Arta Wallet</h2>
+            <p className="text-[#B3B3C2] text-base lg:text-lg">Cross-Device ICP Authentication</p>
           </div>
-          <h2 className="text-xl font-bold text-gray-900">Arta Wallet</h2>
-          <p className="text-sm text-gray-600">Cross-Device ICP Authentication</p>
+
+          {/* Mode Tabs */}
+          <div className="flex space-x-2 bg-[#181A20] p-2 rounded-2xl mt-6 border border-[#23253B]">
+            <button
+              onClick={() => {
+                setMode('login')
+                resetForm()
+              }}
+              className={`flex-1 py-3 lg:py-4 px-4 lg:px-6 rounded-xl text-sm lg:text-base font-semibold transition-all duration-300 ${
+                mode === 'login' 
+                  ? 'bg-gradient-to-r from-[#885FFF] to-[#59C1FF] text-white shadow-lg shadow-purple-500/25' 
+                  : 'text-[#B3B3C2] hover:text-[#F5F6FA] hover:bg-[#262840]'
+              }`}
+            >
+              Login
+            </button>
+            <button
+              onClick={() => {
+                setMode('register')
+                resetForm()
+              }}
+              className={`flex-1 py-3 lg:py-4 px-4 lg:px-6 rounded-xl text-sm lg:text-base font-semibold transition-all duration-300 ${
+                mode === 'register' 
+                  ? 'bg-gradient-to-r from-[#885FFF] to-[#59C1FF] text-white shadow-lg shadow-purple-500/25' 
+                  : 'text-[#B3B3C2] hover:text-[#F5F6FA] hover:bg-[#262840]'
+              }`}
+            >
+              Register
+            </button>
+          </div>
         </div>
 
-        {/* Mode Tabs */}
-        <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mt-4">
-          <button
-            onClick={() => {
-              setMode('login')
-              resetForm()
-            }}
-            className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
-              mode === 'login' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600'
-            }`}
-          >
-            Login
-          </button>
-          <button
-            onClick={() => {
-              setMode('register')
-              resetForm()
-            }}
-            className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
-              mode === 'register' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600'
-            }`}
-          >
-            Register
-          </button>
+        {/* Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto px-6 lg:px-8 py-6 lg:py-8">
+          {/* Login Mode */}
+          {mode === 'login' && (
+            <div className="space-y-6">
+              <h3 className="text-xl lg:text-2xl font-bold text-[#F5F6FA] mb-6">Login to Account</h3>
+
+              <div>
+                <label className="block text-base lg:text-lg font-semibold text-[#F5F6FA] mb-3">Email Address</label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className="w-full pl-12 lg:pl-14 pr-12 py-4 lg:py-5 bg-[#181A20] border border-[#23253B] rounded-xl lg:rounded-2xl focus:ring-2 focus:ring-[#885FFF] focus:border-[#885FFF] transition-all text-[#F5F6FA] placeholder-[#B3B3C2] text-base lg:text-lg"
+                    required
+                  />
+                  <Mail className="w-5 h-5 lg:w-6 lg:h-6 text-[#B3B3C2] absolute left-4 lg:left-5 top-1/2 transform -translate-y-1/2" />
+                  {checkingWallet && (
+                    <Loader className="w-5 h-5 lg:w-6 lg:h-6 text-[#885FFF] animate-spin absolute right-4 lg:right-5 top-1/2 transform -translate-y-1/2" />
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-base lg:text-lg font-semibold text-[#F5F6FA] mb-3">Password</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    className="w-full pl-12 lg:pl-14 pr-12 py-4 lg:py-5 bg-[#181A20] border border-[#23253B] rounded-xl lg:rounded-2xl focus:ring-2 focus:ring-[#885FFF] focus:border-[#885FFF] transition-all text-[#F5F6FA] placeholder-[#B3B3C2] text-base lg:text-lg"
+                    required
+                  />
+                  <Lock className="w-5 h-5 lg:w-6 lg:h-6 text-[#B3B3C2] absolute left-4 lg:left-5 top-1/2 transform -translate-y-1/2" />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 lg:right-5 top-1/2 transform -translate-y-1/2 text-[#B3B3C2] hover:text-[#F5F6FA] transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5 lg:w-6 lg:h-6" /> : <Eye className="w-5 h-5 lg:w-6 lg:h-6" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20 rounded-xl lg:rounded-2xl p-4 lg:p-6">
+                <p className="text-sm lg:text-base text-blue-400">
+                  🔐 Your wallet identity is securely stored and can be accessed from any device with your email and password.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Register Mode */}
+          {mode === 'register' && (
+            <div className="space-y-6">
+              <h3 className="text-xl lg:text-2xl font-bold text-[#F5F6FA] mb-6">Create Account</h3>
+
+              <div>
+                <label className="block text-base lg:text-lg font-semibold text-[#F5F6FA] mb-3">Email Address</label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className="w-full pl-12 lg:pl-14 pr-12 py-4 lg:py-5 bg-[#181A20] border border-[#23253B] rounded-xl lg:rounded-2xl focus:ring-2 focus:ring-[#885FFF] focus:border-[#885FFF] transition-all text-[#F5F6FA] placeholder-[#B3B3C2] text-base lg:text-lg"
+                    required
+                  />
+                  <Mail className="w-5 h-5 lg:w-6 lg:h-6 text-[#B3B3C2] absolute left-4 lg:left-5 top-1/2 transform -translate-y-1/2" />
+                  {checkingWallet && (
+                    <Loader className="w-5 h-5 lg:w-6 lg:h-6 text-[#885FFF] animate-spin absolute right-4 lg:right-5 top-1/2 transform -translate-y-1/2" />
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-base lg:text-lg font-semibold text-[#F5F6FA] mb-3">Username</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Your display name"
+                    className="w-full pl-12 lg:pl-14 pr-4 py-4 lg:py-5 bg-[#181A20] border border-[#23253B] rounded-xl lg:rounded-2xl focus:ring-2 focus:ring-[#885FFF] focus:border-[#885FFF] transition-all text-[#F5F6FA] placeholder-[#B3B3C2] text-base lg:text-lg"
+                    required
+                  />
+                  <User className="w-5 h-5 lg:w-6 lg:h-6 text-[#B3B3C2] absolute left-4 lg:left-5 top-1/2 transform -translate-y-1/2" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-base lg:text-lg font-semibold text-[#F5F6FA] mb-3">Password</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Create secure password (min 6 characters)"
+                    className="w-full pl-12 lg:pl-14 pr-12 py-4 lg:py-5 bg-[#181A20] border border-[#23253B] rounded-xl lg:rounded-2xl focus:ring-2 focus:ring-[#885FFF] focus:border-[#885FFF] transition-all text-[#F5F6FA] placeholder-[#B3B3C2] text-base lg:text-lg"
+                    required
+                    minLength={6}
+                  />
+                  <Lock className="w-5 h-5 lg:w-6 lg:h-6 text-[#B3B3C2] absolute left-4 lg:left-5 top-1/2 transform -translate-y-1/2" />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 lg:right-5 top-1/2 transform -translate-y-1/2 text-[#B3B3C2] hover:text-[#F5F6FA] transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5 lg:w-6 lg:h-6" /> : <Eye className="w-5 h-5 lg:w-6 lg:h-6" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 rounded-xl lg:rounded-2xl p-4 lg:p-6">
+                <p className="text-sm lg:text-base text-emerald-400">
+                  🌐 Your wallet will be securely stored and accessible from any device. Same email can only register once.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Messages */}
+          {error && (
+            <div className="mt-6 p-4 lg:p-6 bg-rose-500/10 border border-rose-500/20 rounded-xl lg:rounded-2xl flex items-start space-x-3 lg:space-x-4">
+              <AlertCircle className="w-5 h-5 lg:w-6 lg:h-6 text-rose-400 mt-0.5 flex-shrink-0" />
+              <span className="text-rose-400 text-sm lg:text-base font-medium break-words">{error}</span>
+            </div>
+          )}
+
+          {success && (
+            <div className="mt-6 p-4 lg:p-6 bg-emerald-500/10 border border-emerald-500/20 rounded-xl lg:rounded-2xl flex items-start space-x-3 lg:space-x-4">
+              <CheckCircle className="w-5 h-5 lg:w-6 lg:h-6 text-emerald-400 mt-0.5 flex-shrink-0" />
+              <span className="text-emerald-400 text-sm lg:text-base font-medium break-words">{success}</span>
+            </div>
+          )}
+
+          {/* Extra spacing for scroll */}
+          <div className="h-4"></div>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="px-6 py-4">
-        {/* Login Mode */}
-        {mode === 'login' && (
-          <form onSubmit={handleLogin} className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900">Login to Account</h3>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-              <div className="relative">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your@email.com"
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  required
-                />
-                <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                {checkingWallet && (
-                  <Loader className="w-4 h-4 text-indigo-600 animate-spin absolute right-3 top-1/2 transform -translate-y-1/2" />
-                )}
+        {/* Footer - Fixed at bottom */}
+        <div className="px-6 lg:px-8 py-6 lg:py-8 border-t border-[#23253B] bg-[#181A20] rounded-b-2xl lg:rounded-b-3xl flex-shrink-0">
+          {mode === 'login' && (
+            <button
+              type="button"
+              onClick={handleLogin}
+              disabled={loading || !email || !password}
+              className="w-full group relative overflow-hidden bg-gradient-to-r from-[#885FFF] to-[#59C1FF] text-white rounded-xl lg:rounded-2xl py-4 lg:py-5 px-6 lg:px-8 font-bold text-base lg:text-lg shadow-2xl shadow-purple-500/25 hover:shadow-purple-500/40 transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            >
+              <div className="flex items-center justify-center space-x-3">
+                {loading ? <RefreshCw className="w-5 h-5 lg:w-6 lg:h-6 animate-spin" /> : null}
+                <span>Login to Wallet</span>
               </div>
-            </div>
+              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+            </button>
+          )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  required
-                />
-                <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+          {mode === 'register' && (
+            <button
+              type="button"
+              onClick={handleCreateAccount}
+              disabled={loading || !email || !username || !password}
+              className="w-full group relative overflow-hidden bg-gradient-to-r from-[#885FFF] to-[#59C1FF] text-white rounded-xl lg:rounded-2xl py-4 lg:py-5 px-6 lg:px-8 font-bold text-base lg:text-lg shadow-2xl shadow-purple-500/25 hover:shadow-purple-500/40 transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+            >
+              <div className="flex items-center justify-center space-x-3">
+                {loading ? <RefreshCw className="w-5 h-5 lg:w-6 lg:h-6 animate-spin" /> : null}
+                <span>Create Account</span>
               </div>
-            </div>
-
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-xs text-blue-700">
-                🔐 Your wallet identity is securely stored and can be accessed from any device with your email and password.
-              </p>
-            </div>
-          </form>
-        )}
-
-        {/* Register Mode */}
-        {mode === 'register' && (
-          <form onSubmit={handleCreateAccount} className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900">Create Account</h3>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-              <div className="relative">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your@email.com"
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  required
-                />
-                <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                {checkingWallet && (
-                  <Loader className="w-4 h-4 text-indigo-600 animate-spin absolute right-3 top-1/2 transform -translate-y-1/2" />
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Your display name"
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  required
-                />
-                <User className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Create secure password (min 6 characters)"
-                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  required
-                  minLength={6}
-                />
-                <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-              <p className="text-xs text-green-700">
-                🌐 Your wallet will be securely stored and accessible from any device. Same email can only register once.
-              </p>
-            </div>
-          </form>
-        )}
-
-        {/* Messages */}
-        {error && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start space-x-2">
-            <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
-            <span className="text-red-700 text-sm">{error}</span>
-          </div>
-        )}
-
-        {success && (
-          <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start space-x-2">
-            <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-            <span className="text-green-700 text-sm">{success}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Footer */}
-      <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-        {mode === 'login' && (
-          <button
-            type="submit"
-            onClick={handleLogin}
-            disabled={loading || !email || !password}
-            className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center"
-          >
-            {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
-            Login
-          </button>
-        )}
-
-        {mode === 'register' && (
-          <button
-            type="submit"
-            onClick={handleCreateAccount}
-            disabled={loading || !email || !username || !password}
-            className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center"
-          >
-            {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
-            Create Account
-          </button>
-        )}
+              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )

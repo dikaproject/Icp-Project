@@ -4,13 +4,15 @@ import { useICP } from '../contexts/ICPContext.jsx'
 import { 
   Wallet, 
   QrCode, 
-  Globe, 
   Shield, 
   Zap, 
-  Users,
   ArrowRight,
   LogIn,
-  AlertCircle
+  AlertCircle,
+  ChevronRight,
+  TrendingUp,
+  Users,
+  Globe
 } from 'lucide-react'
 
 const Home = () => {
@@ -39,24 +41,34 @@ const Home = () => {
   const features = [
     {
       icon: QrCode,
-      title: 'QR Code Payments',
-      description: 'Generate and scan QR codes for instant payments'
-    },
-    {
-      icon: Globe,
-      title: 'Global Reach',
-      description: 'Support for multiple currencies and worldwide transactions'
+      title: 'QR Payments',
+      description: 'Instant QR code payments',
+      color: 'from-blue-500 to-blue-600'
     },
     {
       icon: Shield,
-      title: 'Secure & Decentralized',
-      description: 'Built on Internet Computer for maximum security'
+      title: 'Secure',
+      description: 'Blockchain security',
+      color: 'from-green-500 to-green-600'
     },
     {
       icon: Zap,
-      title: 'Lightning Fast',
-      description: 'Process payments in seconds with minimal fees'
+      title: 'Fast',
+      description: 'Lightning transactions',
+      color: 'from-yellow-500 to-yellow-600'
+    },
+    {
+      icon: Globe,
+      title: 'Global',
+      description: 'Worldwide access',
+      color: 'from-purple-500 to-purple-600'
     }
+  ]
+
+  const stats = [
+    { label: 'Total Users', value: '12,547', icon: Users },
+    { label: 'Transactions', value: '89.2K', icon: TrendingUp },
+    { label: 'Success Rate', value: '99.9%', icon: Shield }
   ]
 
   const handleGetStarted = async () => {
@@ -65,168 +77,219 @@ const Home = () => {
     }
   }
 
+  if (isAuthenticated && user) {
+    return (
+      <div className="space-y-8">
+        {/* Welcome Section */}
+        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-8 text-white">
+          <div className="flex flex-col lg:flex-row items-center justify-between">
+            <div className="space-y-4 lg:w-2/3">
+              <h1 className="text-3xl lg:text-4xl font-bold">
+                Welcome back, {user.username || 'User'}! 👋
+              </h1>
+              <p className="text-slate-300 text-lg">
+                Ready to manage your payments? Access all your tools from the dashboard.
+              </p>
+              <Link
+                to="/dashboard"
+                className="inline-flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all font-medium"
+              >
+                <Wallet className="h-5 w-5" />
+                <span>Go to Dashboard</span>
+                <ArrowRight className="h-5 w-5" />
+              </Link>
+            </div>
+            <div className="lg:w-1/3 mt-6 lg:mt-0">
+              <div className="w-32 h-32 bg-gradient-to-r from-blue-500/20 to-purple-600/20 rounded-full flex items-center justify-center mx-auto">
+                <Wallet className="h-16 w-16 text-blue-400" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Link
+            to="/generate"
+            className="group p-6 bg-white rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-lg transition-all"
+          >
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
+                <QrCode className="h-6 w-6 text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-slate-900">Generate QR</h3>
+                <p className="text-sm text-slate-600">Create payment codes</p>
+              </div>
+              <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-slate-600" />
+            </div>
+          </Link>
+          
+          <Link
+            to="/scan"
+            className="group p-6 bg-white rounded-xl border border-slate-200 hover:border-green-300 hover:shadow-lg transition-all"
+          >
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-green-100 rounded-lg group-hover:bg-green-200 transition-colors">
+                <Shield className="h-6 w-6 text-green-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-slate-900">Scan Payment</h3>
+                <p className="text-sm text-slate-600">Process payments</p>
+              </div>
+              <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-slate-600" />
+            </div>
+          </Link>
+          
+          <Link
+            to="/history"
+            className="group p-6 bg-white rounded-xl border border-slate-200 hover:border-purple-300 hover:shadow-lg transition-all"
+          >
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
+                <TrendingUp className="h-6 w-6 text-purple-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-slate-900">View History</h3>
+                <p className="text-sm text-slate-600">Transaction logs</p>
+              </div>
+              <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-slate-600" />
+            </div>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-16">
       {/* Hero Section */}
       <div className="text-center space-y-8">
-        <div className="space-y-4">
-          <h1 className="text-5xl font-bold text-gray-900">
-            Decentralized Payment Gateway
+        <div className="space-y-6">
+          <div className="inline-flex items-center px-4 py-2 bg-slate-100 rounded-full text-sm text-slate-600">
+            <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+            Powered by Internet Computer
+          </div>
+          
+          <h1 className="text-4xl lg:text-6xl font-bold text-slate-900">
+            Decentralized Payment
+            <span className="bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent block">
+              Gateway
+            </span>
           </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Experience the future of payments with our secure, fast, and 
-            decentralized payment gateway built on Internet Computer Protocol.
+          
+          <p className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
+            Experience secure, fast, and decentralized payments built on Internet Computer Protocol. 
+            The future of finance is here.
           </p>
         </div>
 
         {/* Error Display */}
         {error && (
-          <div className="flex items-center justify-center space-x-2 px-6 py-3 bg-red-50 border border-red-200 rounded-lg max-w-md mx-auto">
+          <div className="flex items-center justify-center space-x-2 px-6 py-3 bg-red-50 border border-red-200 rounded-xl max-w-md mx-auto">
             <AlertCircle className="h-5 w-5 text-red-600" />
             <span className="text-red-700 font-medium">{error}</span>
           </div>
         )}
 
-        {/* Auth Status */}
+        {/* Auth CTA */}
         <div className="flex justify-center">
           {isLoading ? (
-            <div className="flex items-center space-x-2 px-8 py-4 bg-blue-50 rounded-lg">
+            <div className="flex items-center space-x-3 px-8 py-4 bg-slate-100 rounded-xl">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-slate-600"></div>
+              <span className="text-slate-600 font-medium">Connecting...</span>
+            </div>
+          ) : !isAuthenticated ? (
+            <button
+              onClick={handleGetStarted}
+              className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg text-lg font-medium"
+            >
+              <LogIn className="h-5 w-5" />
+              <span>Get Started</span>
+              <ArrowRight className="h-5 w-5" />
+            </button>
+          ) : userLoading ? (
+            <div className="flex items-center space-x-3 px-8 py-4 bg-blue-50 rounded-xl">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
               <span className="text-blue-600 font-medium">Loading...</span>
             </div>
-          ) : isAuthenticated ? (
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2 px-6 py-3 bg-green-50 rounded-lg">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span className="text-green-700 font-medium">
-                  ✅ Connected as {principal?.toString().slice(0, 10)}...
-                </span>
-              </div>
-              
-              {userLoading ? (
-                <div className="flex items-center space-x-2 px-6 py-3 bg-blue-50 rounded-lg">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                  <span className="text-blue-600">Loading user data...</span>
-                </div>
-              ) : user ? (
-                <div className="space-y-2">
-                  <div className="px-6 py-3 bg-purple-50 rounded-lg">
-                    <span className="text-purple-700 font-medium">
-                      👋 Welcome back, {user.username || 'User'}!
-                    </span>
-                  </div>
-                  <Link
-                    to="/dashboard"
-                    className="inline-flex items-center space-x-2 px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-lg font-medium"
-                  >
-                    <Wallet className="h-5 w-5" />
-                    <span>Go to Dashboard</span>
-                    <ArrowRight className="h-5 w-5" />
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="px-6 py-3 bg-orange-50 rounded-lg">
-                    <span className="text-orange-700 font-medium">
-                      📝 Please complete registration
-                    </span>
-                  </div>
-                  <Link
-                    to="/dashboard"
-                    className="inline-flex items-center space-x-2 px-8 py-4 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-lg font-medium"
-                  >
-                    <Users className="h-5 w-5" />
-                    <span>Complete Registration</span>
-                    <ArrowRight className="h-5 w-5" />
-                  </Link>
-                </div>
-              )}
-            </div>
           ) : (
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2 px-6 py-3 bg-yellow-50 rounded-lg">
-                <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                <span className="text-yellow-700 font-medium">
-                  🔐 Login Required
-                </span>
-              </div>
-              <button
-                onClick={handleGetStarted}
-                disabled={isLoading}
-                className="inline-flex items-center space-x-2 px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-lg font-medium disabled:opacity-50"
-              >
-                <LogIn className="h-5 w-5" />
-                <span>Login with Internet Identity</span>
-              </button>
-            </div>
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg text-lg font-medium"
+            >
+              <Wallet className="h-5 w-5" />
+              <span>Enter Dashboard</span>
+              <ArrowRight className="h-5 w-5" />
+            </Link>
           )}
         </div>
       </div>
 
-      {/* Features Grid */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-        {features.map((feature, index) => {
-          const Icon = feature.icon
+      {/* Stats Section */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {stats.map((stat, index) => {
+          const Icon = stat.icon
           return (
-            <div key={index} className="text-center space-y-4">
-              <div className="flex justify-center">
-                <div className="p-3 bg-blue-100 rounded-lg">
-                  <Icon className="h-8 w-8 text-blue-600" />
+            <div key={index} className="bg-white p-6 rounded-xl border border-slate-200 text-center">
+              <div className="flex justify-center mb-4">
+                <div className="p-3 bg-slate-100 rounded-lg">
+                  <Icon className="h-6 w-6 text-slate-600" />
                 </div>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">
-                {feature.title}
-              </h3>
-              <p className="text-gray-600">
-                {feature.description}
-              </p>
+              <div className="space-y-1">
+                <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
+                <p className="text-sm text-slate-600">{stat.label}</p>
+              </div>
             </div>
           )
         })}
       </div>
 
-      {/* Quick Actions */}
-      {isAuthenticated && user && (
-        <div className="bg-white rounded-xl shadow-sm border p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-            Quick Actions
+      {/* Features Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {features.map((feature, index) => {
+          const Icon = feature.icon
+          return (
+            <div key={index} className="bg-white p-6 rounded-xl border border-slate-200 hover:shadow-lg transition-all group">
+              <div className="space-y-4">
+                <div className={`w-12 h-12 bg-gradient-to-r ${feature.color} rounded-lg flex items-center justify-center`}>
+                  <Icon className="h-6 w-6 text-white" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-slate-900 group-hover:text-slate-700">
+                    {feature.title}
+                  </h3>
+                  <p className="text-sm text-slate-600">
+                    {feature.description}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* CTA Section */}
+      <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl p-8 lg:p-12 text-center text-white">
+        <div className="space-y-6">
+          <h2 className="text-3xl lg:text-4xl font-bold">
+            Ready to get started?
           </h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            <Link
-              to="/generate"
-              className="flex items-center space-x-3 p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors group"
+          <p className="text-xl text-slate-300 max-w-2xl mx-auto">
+            Join thousands of users who trust our platform for secure, fast payments.
+          </p>
+          {!isAuthenticated && (
+            <button
+              onClick={handleGetStarted}
+              className="inline-flex items-center space-x-3 px-8 py-4 bg-white text-slate-900 rounded-xl hover:bg-slate-100 transition-all font-medium"
             >
-              <QrCode className="h-6 w-6 text-blue-600" />
-              <div>
-                <h3 className="font-semibold text-gray-900">Generate QR</h3>
-                <p className="text-sm text-gray-600">Create payment QR codes</p>
-              </div>
-            </Link>
-            
-            <Link
-              to="/scan"
-              className="flex items-center space-x-3 p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors group"
-            >
-              <Shield className="h-6 w-6 text-green-600" />
-              <div>
-                <h3 className="font-semibold text-gray-900">Scan Payment</h3>
-                <p className="text-sm text-gray-600">Process QR payments</p>
-              </div>
-            </Link>
-            
-            <Link
-              to="/history"
-              className="flex items-center space-x-3 p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors group"
-            >
-              <Users className="h-6 w-6 text-purple-600" />
-              <div>
-                <h3 className="font-semibold text-gray-900">View History</h3>
-                <p className="text-sm text-gray-600">Check transactions</p>
-              </div>
-            </Link>
-          </div>
+              <LogIn className="h-5 w-5" />
+              <span>Connect Wallet</span>
+            </button>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }
