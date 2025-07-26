@@ -163,24 +163,33 @@ export const ICPProvider = ({ children }) => {
 
     // Update handleWalletConnect in ICPContext.jsx
   const handleWalletConnect = async (identity, walletName) => {
-  try {
-    console.log('🔗 Connecting wallet:', walletName)
-    console.log('🆔 Principal:', identity.getPrincipal().toString())
-    
-    setShowWalletModal(false)
-    setCurrentWallet({ identity, name: walletName })
-    
-    await authenticateWithIdentity(identity)
-    
-    return true
-  } catch (err) {
-    console.error('Wallet connection error:', err)
-    setError('Failed to connect wallet')
-    return false
+    try {
+      console.log('🔗 Connecting wallet:', walletName)
+      console.log('🆔 Principal:', identity.getPrincipal().toString())
+      
+      setShowWalletModal(false)
+      setCurrentWallet({ identity, name: walletName })
+      
+      await authenticateWithIdentity(identity)
+      
+      // Redirect to dashboard using window.location
+      const currentPath = window.location.pathname
+      if (!currentPath.startsWith('/dashboard')) {
+        console.log('🔄 Redirecting to dashboard from:', currentPath)
+        window.location.href = '/dashboard'
+      } else {
+        console.log('✅ Already on dashboard, no redirect needed')
+      }
+      
+      return true
+    } catch (err) {
+      console.error('Wallet connection error:', err)
+      setError('Failed to connect wallet')
+      return false
+    }
   }
-}
 
-  // Update handleWalletCreate function
+  // Update handleWalletCreate function (around line 180):
   const handleWalletCreate = async (identity, walletName, mnemonic, extraData) => {
     try {
       setShowWalletModal(false)
@@ -206,6 +215,15 @@ export const ICPProvider = ({ children }) => {
             console.error('❌ Registration failed:', result.error)
           }
         }
+      }
+      
+      // Redirect to dashboard using window.location
+      const currentPath = window.location.pathname
+      if (!currentPath.startsWith('/dashboard')) {
+        console.log('🔄 Redirecting to dashboard from:', currentPath)
+        window.location.href = '/dashboard'
+      } else {
+        console.log('✅ Already on dashboard, no redirect needed')
       }
       
       return true
